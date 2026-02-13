@@ -1,0 +1,44 @@
+name: telegram_chatbot
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - pytorch
+  - torchvision
+  - torchaudio
+  # macOS/Linux compatible (cpu/mps/cuda handled by conda logic)
+  # - pytorch-cuda=12.4  <-- Removed to support cross-platform setup script
+  - pip:
+    # Telegram & HTTP
+    - pyTelegramBotAPI>=4.9.0
+    - requests>=2.28.0
+
+    # Web Service & Monitor
+    - fastapi
+    - uvicorn
+    - mlflow
+    - pydantic
+    - PyYAML
+
+    # HuggingFace & LLM Toolchain
+    - transformers
+    - accelerate
+    - datasets
+    - peft
+    - bitsandbytes
+    - sentencepiece
+    - safetensors
+    
+    # OpenCompass Evaluation
+    - opencompass
+    - mmengine
+    - protobuf
+    # - mmcv>=2.0.0  <-- Handled by setup script (mim install) to avoid build errors
+
+    # Testing
+    - pytest
+    - pytest-asyncio

@@ -1,0 +1,23 @@
+<system>
+  <protocol>
+    {{system_rules}}
+  </protocol>
+</system>
+
+<persona>
+  {{persona}}
+</persona>
+
+<context>
+  <memory type="summary">
+    {{memory}}
+  </memory>
+
+  <conversation type="recent">
+    {{conversation}}
+  </conversation>
+</context>
+
+<user>
+  {{user_message}}
+</user>

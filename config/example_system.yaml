@@ -1,0 +1,32 @@
+telegram:
+  bot_token: "_Your_Telegram_Bot_Token_"
+  owner_id: "_Your_Telegram_User_ID_"
+
+bot:
+  private_mode_default: true
+
+llm:
+  api_key: "_Your_OpenAI_Compatible_API_Key_"
+  api_url: "https://api.openai.com/v1/chat/completions"
+  model: "deepseek-chat"
+  temperature: 0.7
+  max_tokens: 1024
+  use_local_api: false
+  local_api_url: "http://localhost:8000/v1/chat/completions"
+
+llm_server:
+  model_path: "Qwen/Qwen2.5-3B-Instruct"
+  host: "0.0.0.0"
+  port: 8000
+  load_in_4bit: true
+  load_in_8bit: false
+
+message_buffer:
+  collect_min_time: 15
+  collect_max_time: 20
+
+proactive:
+  check_interval_min: 1800
+  check_interval_max: 7200
+  send_delay_min: 60
+  send_delay_max: 600

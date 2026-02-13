@@ -1,0 +1,77 @@
+# ==================== 虚拟环境 ====================
+# Python 虚拟环境（通用规则，覆盖 .venv/ venv/ env/ 等）
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ==================== 敏感配置 & 环境变量 ====================
+# 项目配置文件（仅忽略实际配置，保留示例配置）
+config/system.yaml
+# NoneBot/项目环境变量文件
+.env
+.env.dev
+.env.prod
+.env.local
+.env.*.local
+
+# ==================== Python 编译/缓存文件 ====================
+# 字节码文件
+__pycache__/
+*.py[cod]
+*$py.class
+# C 扩展模块
+*.so
+# 缓存文件
+*.pyc
+*.pyo
+*.pyd
+# Python egg-info（打包相关）
+*.egg-info/
+.eggs/
+
+# ==================== 日志 & 缓存 & 临时文件 ====================
+# 日志文件
+*.log
+logs/
+# 缓存文件
+*.cache
+# 临时文件
+*.tmp
+*.temp
+*.swp
+*.swo
+.DS_Store  # MacOS 系统文件
+Thumbs.db  # Windows 系统文件
+
+# ==================== IDE/编辑器配置 ====================
+# JetBrains 系列（PyCharm、IDEA 等）
+.idea/
+# VSCode
+.vscode/
+*.code-workspace
+# Vim 临时文件
+*~
+
+# ==================== 项目业务文件 ====================
+# 仅忽略 user_memories 下的数据库文件，保留 .gitkeep（空目录占位）
+user_memories/*.db
+# 若有自动生成的汇总文件，可按需忽略
+# BOT_MEMORY_SUMMARY.md
+
+# ==================== 构建/打包产物 ====================
+# 打包输出目录
+dist/
+build/
+# pip 缓存
+pip-wheel-metadata/
+# poetry/pdm 临时文件（按需保留）
+.pdm-python
+.pdm-build/
+# poetry.lock 建议提交（锁定依赖版本），无需忽略
+# pdm.lock 建议提交，无需忽略
+
+.DS_Store 
+# MacOS 系统文件
