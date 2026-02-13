@@ -1,46 +1,9 @@
-# Generated from environment.yaml & Codebase Analysis
-# Recommended Python version: 3.12
+# Core
+openai>=1.0.0
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+tiktoken>=0.5.0  # For token counting
 
-# Core Frameworks (PyTorch)
-# Note: On MacOS, this will typically install the version supporting MPS (Metal Performance Shaders)
-torch
-torchvision
-torchaudio
-
-# Telegram
-# IMPORTANT: The package 'pyTelegramBotAPI' provides the 'telebot' module. 
-# DO NOT install the package named 'telebot' (it is different/incompatible).
-pyTelegramBotAPI>=4.9.0
-
-# HTTP & Async
-requests>=2.28.0
-
-# Web Service & Monitor
-fastapi
-uvicorn
-mlflow
-
-# Configuration & Utilities
-pydantic
-PyYAML
-
-# HuggingFace & LLM Toolchain
-transformers
-accelerate
-datasets
-peft
-bitsandbytes
-sentencepiece
-safetensors
-
-# OpenCompass Evaluation
-# Note: mmcv is handled by the setup script using 'mim' for better stability.
-# Do not uncomment the line below unless you are manually managing dependencies.
-# mmcv>=2.0.0
-opencompass
-mmengine
-protobuf
-
-# Testing
-pytest
-pytest-asyncio
+# Vector Store / Embedding (Optional/Local)
+# sentence-transformers  # If using local embeddings
+# chromadb or faiss-cpu  # If implementing vector store
