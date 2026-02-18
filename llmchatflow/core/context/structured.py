@@ -20,7 +20,7 @@ class StructuredContextBuilder(ContextBuilder):
         beta: float = 0.2,
         gamma: float = 0.15,
         delta: float = 0.15,
-        tokenizer_model: str = "gpt-3.5-turbo",
+        tokenizer_model: str = "gpt2",
         top_k: int = 10,
     ):
         self.store = store

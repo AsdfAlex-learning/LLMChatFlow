@@ -2,8 +2,8 @@
 openai>=1.0.0
 pydantic>=2.0.0
 python-dotenv>=1.0.0
-tiktoken>=0.5.0  # For token counting
+transformers>=4.40.0  # Token counting via AutoTokenizer
 
 # Vector Store / Embedding (Optional/Local)
-# sentence-transformers  # If using local embeddings
+# sentence-transformers  # If using real local embeddings
 # chromadb or faiss-cpu  # If implementing vector store
