@@ -31,7 +31,7 @@ def main():
         beta=0.2,
         gamma=0.15,
         delta=0.15,
-        tokenizer_model="gpt2",
+        llm_model_name="gpt-3.5-turbo",
         top_k=10,
     )
     engine = SemanticMemoryEngine(

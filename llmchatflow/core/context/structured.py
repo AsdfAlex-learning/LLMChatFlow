@@ -20,7 +20,7 @@ class StructuredContextBuilder(ContextBuilder):
         beta: float = 0.2,
         gamma: float = 0.15,
         delta: float = 0.15,
-        tokenizer_model: str = "BAAI/bge-small-zh-v1.5",
+        llm_model_name: str = "gpt-3.5-turbo",
         top_k: int = 10,
     ):
         self.store = store
@@ -31,12 +31,15 @@ class StructuredContextBuilder(ContextBuilder):
         self.beta = beta
         self.gamma = gamma
         self.delta = delta
-        self.tokenizer_model = tokenizer_model
+        self.llm_model_name = llm_model_name
         self.top_k = top_k
         self.assembler = SimplePromptAssembler()
 
     def build_messages(
-        self, session_id: str, user_text: str, current_embedding: Optional[List[float]] = None
+        self,
+        session_id: str,
+        user_text: str,
+        current_embedding: Optional[List[float]] = None,
     ) -> List[Dict[str, str]]:
         if current_embedding is None:
             current_embedding = self.embedder.embed(user_text)
@@ -55,7 +58,7 @@ class StructuredContextBuilder(ContextBuilder):
         for r in ranked:
             r["_score"] = float(r.get("_score", 0.0))
         trimmed = trim_records_to_token_budget(
-            ranked, self.max_memory_token, self.tokenizer_model
+            ranked, self.max_memory_token, self.llm_model_name
         )
         trimmed.sort(key=lambda r: r.get("timestamp", 0))
         history_text = "\n".join([x["text"] for x in trimmed])
