@@ -2,7 +2,7 @@ import time
 from typing import List, Dict, Optional
 from .base import ContextBuilder
 from ..memory.storage import MemoryStore
-from ...utils.embedding import SimpleEmbedding
+from ...utils.embedding import SentenceEmbedding
 from ..memory.semantic import semantic_scores
 from ..memory.ranking import compute_final_scores
 from ..memory.trimming import trim_records_to_token_budget
@@ -13,7 +13,7 @@ class StructuredContextBuilder(ContextBuilder):
     def __init__(
         self,
         store: MemoryStore,
-        embedder: SimpleEmbedding,
+        embedder: SentenceEmbedding,
         max_memory_token: int = 2000,
         lam: float = 0.1,
         alpha: float = 0.5,

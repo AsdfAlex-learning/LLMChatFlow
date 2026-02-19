@@ -4,7 +4,7 @@ from ..llm.base import LLMClient
 from ..session.base import ISession
 from ..context.base import ContextBuilder
 from ..memory.storage import MemoryStore
-from ...utils.embedding import SimpleEmbedding
+from ...utils.embedding import SentenceEmbedding
 
 
 class SemanticMemoryEngine(WorkflowEngine):
@@ -14,7 +14,7 @@ class SemanticMemoryEngine(WorkflowEngine):
         llm_client: LLMClient,
         context_builder: ContextBuilder,
         store: MemoryStore,
-        embedder: SimpleEmbedding,
+        embedder: SentenceEmbedding,
     ):
         self.session = session
         self.llm_client = llm_client

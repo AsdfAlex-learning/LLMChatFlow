@@ -10,7 +10,7 @@ from llmchatflow.core.context.structured import StructuredContextBuilder
 from llmchatflow.core.workflow.engine import SemanticMemoryEngine
 from llmchatflow.adapters.cli.adapter import CLIAdapter
 from llmchatflow.utils.sqlite_helper import SQLiteMemoryStore
-from llmchatflow.utils.embedding import SimpleEmbedding
+from llmchatflow.utils.embedding import SentenceEmbedding
 
 
 def main():
@@ -21,7 +21,7 @@ def main():
     session = LocalSession("cli_session_001")
     llm_client = OpenAICompatibleClient()
     store = SQLiteMemoryStore("memory.db")
-    embedder = SimpleEmbedding()
+    embedder = SentenceEmbedding()
     ctx_builder = StructuredContextBuilder(
         store=store,
         embedder=embedder,

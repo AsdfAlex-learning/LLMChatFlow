@@ -1,25 +1,26 @@
 import math
-import hashlib
 from typing import List
+from sentence_transformers import SentenceTransformer
 
 
-class SimpleEmbedding:
-    def __init__(self, model_name: str = "bge-small-zh-v1.5", dim: int = 384):
+class SentenceEmbedding:
+    def __init__(self, model_name: str = "BAAI/bge-small-zh-v1.5", dim: int = 512):
         self.model_name = model_name
-        self.dim = dim
+        # Load the model directly
+        self.model = SentenceTransformer(model_name)
 
-    def _hash_token(self, token_str: str) -> int:
-        h = hashlib.sha256(token_str.encode()).hexdigest()
-        return int(h[:8], 16)
+        # Update dim from model if possible
+        if hasattr(self.model, "get_sentence_embedding_dimension"):
+            d = self.model.get_sentence_embedding_dimension()
+            if d:
+                self.dim = int(d)
+        else:
+            self.dim = dim
 
     def embed(self, text: str) -> List[float]:
-        tokens = text.strip().split()
-        v = [0.0] * self.dim
-        for tk in tokens:
-            idx = self._hash_token(tk) % self.dim
-            v[idx] += 1.0
-        norm = math.sqrt(sum(x * x for x in v)) or 1.0
-        return [x / norm for x in v]
+        # Generate normalized embeddings
+        embeddings = self.model.encode([text], normalize_embeddings=True)
+        return embeddings[0].tolist()
 
 
 def cosine_similarity(a: List[float], b: List[float]) -> float:
