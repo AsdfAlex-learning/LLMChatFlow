@@ -12,6 +12,7 @@ else
 fi
 python -m pip install -U pip setuptools wheel
 pip install -r requirements.txt
+pip install -e .
 if [ -f ".env.example" ] && [ ! -f ".env" ]; then
   cp .env.example .env
 fi

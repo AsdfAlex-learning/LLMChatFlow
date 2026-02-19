@@ -7,6 +7,7 @@ if (Test-Path ".\.venv\Scripts\Activate.ps1") {
 }
 python -m pip install -U pip setuptools wheel
 pip install -r requirements.txt
+pip install -e .
 if (Test-Path ".env.example" -and -not (Test-Path ".env")) {
   Copy-Item ".env.example" ".env"
 }

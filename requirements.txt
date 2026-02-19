@@ -5,7 +5,18 @@ transformers>=4.40.0  # Token counting via AutoTokenizer
 pysqlite3
 requests>=2.31.0
 numpy>=1.24.0
-pysqlite3
+
+# SQLite适配
+pysqlite3-binary; platform_system == "Linux"   # Linux用二进制版
+pysqlite3; platform_system != "Linux"  # Windows/macOS用普通版
+
+# Embedding核心依赖
+sentence-transformers>=2.7.0  # 核心：封装Embedding模型加载/使用
+torch>=2.0.0  # sentence-transformers依赖PyTorch
+huggingface-hub>=0.20.0  # 从HuggingFace下载模型
+
+# 加速向量计算
+accelerate>=0.20.0
 
 # Storage backends
 

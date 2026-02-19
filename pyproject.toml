@@ -9,24 +9,19 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "requests>=2.31.0",
     "numpy>=1.24.0",
+    "transformers>=4.40.0",
+    "sentence-transformers>=2.7.0",
+    "torch>=2.0.0",
+    "huggingface-hub>=0.20.0",
+    "accelerate>=0.20.0",
+    "pysqlite3-binary; platform_system == 'Linux'",
+    "pysqlite3; platform_system != 'Linux'",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest",
-    "black",
-    "isort",
-]
-storage-sqlite = [
-    "pysqlite3-binary"
-]
-storage-postgres = [
-    "psycopg[binary]",
-    "pgvector"
-]
-storage-mysql = [
-    "pymysql"
-]
+dev = ["pytest", "black", "isort"]
+storage-postgres = ["psycopg[binary]", "pgvector"]
+storage-mysql = ["pymysql"]
 
 [build-system]
 requires = ["hatchling"]

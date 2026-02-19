@@ -11,6 +11,7 @@ conda create -y -n "$ENV_NAME" python="$PY_VER"
 conda activate "$ENV_NAME"
 python -m pip install -U pip
 pip install -r requirements.txt
+pip install -e .
 if [ -f ".env.example" ] && [ ! -f ".env" ]; then
   cp .env.example .env
 fi
