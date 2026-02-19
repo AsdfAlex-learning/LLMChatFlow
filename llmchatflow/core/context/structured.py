@@ -1,7 +1,7 @@
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional
 from .base import ContextBuilder
-from ...utils.sqlite_helper import SQLiteMemoryStore
+from ..memory.storage import MemoryStore
 from ...utils.embedding import SimpleEmbedding
 from ..memory.semantic import semantic_scores
 from ..memory.ranking import compute_final_scores
@@ -12,7 +12,7 @@ from ..prompt.assembler import SimplePromptAssembler
 class StructuredContextBuilder(ContextBuilder):
     def __init__(
         self,
-        store: SQLiteMemoryStore,
+        store: MemoryStore,
         embedder: SimpleEmbedding,
         max_memory_token: int = 2000,
         lam: float = 0.1,
@@ -20,7 +20,7 @@ class StructuredContextBuilder(ContextBuilder):
         beta: float = 0.2,
         gamma: float = 0.15,
         delta: float = 0.15,
-        tokenizer_model: str = "gpt2",
+        tokenizer_model: str = "BAAI/bge-small-zh-v1.5",
         top_k: int = 10,
     ):
         self.store = store
@@ -35,8 +35,11 @@ class StructuredContextBuilder(ContextBuilder):
         self.top_k = top_k
         self.assembler = SimplePromptAssembler()
 
-    def build_messages(self, session_id: str, user_text: str) -> List[Dict[str, str]]:
-        current_embedding = self.embedder.embed(user_text)
+    def build_messages(
+        self, session_id: str, user_text: str, current_embedding: Optional[List[float]] = None
+    ) -> List[Dict[str, str]]:
+        if current_embedding is None:
+            current_embedding = self.embedder.embed(user_text)
         records = self.store.fetch_messages_by_session(session_id)
         cos = semantic_scores(current_embedding, records)
         scored = compute_final_scores(
