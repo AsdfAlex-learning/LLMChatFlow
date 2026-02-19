@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from llmchatflow.core.llm.openai import OpenAIClient
+from llmchatflow.core.llm.openai_compatible import OpenAICompatibleClient
 from llmchatflow.core.session.local import LocalSession
 from llmchatflow.core.context.structured import StructuredContextBuilder
 from llmchatflow.core.workflow.engine import SemanticMemoryEngine
@@ -19,7 +19,7 @@ def main():
         print("Please set OPENAI_API_KEY in .env")
         return
     session = LocalSession("cli_session_001")
-    llm_client = OpenAIClient()
+    llm_client = OpenAICompatibleClient()
     store = SQLiteMemoryStore("memory.db")
     embedder = SimpleEmbedding()
     ctx_builder = StructuredContextBuilder(
