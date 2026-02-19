@@ -5,9 +5,10 @@ description = "A sophisticated workflow engine for LLM-based chatbots"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "openai>=1.0.0",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+    "numpy>=1.24.0",
 ]
 
 [project.optional-dependencies]
@@ -15,6 +16,16 @@ dev = [
     "pytest",
     "black",
     "isort",
+]
+storage-sqlite = [
+    "pysqlite3-binary"
+]
+storage-postgres = [
+    "psycopg[binary]",
+    "pgvector"
+]
+storage-mysql = [
+    "pymysql"
 ]
 
 [build-system]
