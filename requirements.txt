@@ -1,9 +1,19 @@
 # Core
-openai>=1.0.0
 pydantic>=2.0.0
 python-dotenv>=1.0.0
 transformers>=4.40.0  # Token counting via AutoTokenizer
+pysqlite3
+requests>=2.31.0
+numpy>=1.24.0
+pysqlite3
+
+# Storage backends
 
 # Vector Store / Embedding (Optional/Local)
 # sentence-transformers  # If using real local embeddings
 # chromadb or faiss-cpu  # If implementing vector store
+
+# Optional: relational/vector databases (drop-in MemoryStore replacements)
+# psycopg[binary]      # PostgreSQL client (use with pgvector)
+# pgvector             # PostgreSQL vector extension Python bindings
+# pymysql              # MySQL/MariaDB
