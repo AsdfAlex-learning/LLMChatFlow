@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -e
-ENV_NAME="${1:-llmchatflow}"
+ENV_NAME="${ENV_NAME:-llmchatflow}"
 PY_VER="${PY_VER:-3.11}"
 if ! command -v conda >/dev/null 2>&1; then
   echo "conda not found"
@@ -9,10 +9,10 @@ fi
 eval "$(conda shell.bash hook)"
 conda create -y -n "$ENV_NAME" python="$PY_VER"
 conda activate "$ENV_NAME"
-python -m pip install -U pip
+python -m pip install -U pip setuptools wheel
 pip install -r requirements.txt
 pip install -e .
 if [ -f ".env.example" ] && [ ! -f ".env" ]; then
   cp .env.example .env
 fi
-echo "OK"
+echo "OK: conda env ready"
