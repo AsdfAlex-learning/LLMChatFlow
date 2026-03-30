@@ -42,6 +42,10 @@ class AppConfig:
     importance_default: float = 0.5
     archive_days: int = 90
     archive_importance: float = 0.2
+    logging_level: str = "INFO"
+    logging_console: bool = True
+    logging_file_path: str = ""
+    logging_json: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

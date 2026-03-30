@@ -23,3 +23,7 @@ importance_llm_judge: true
 importance_default: 0.5
 archive_days: 90
 archive_importance: 0.2
+logging_level: "INFO"
+logging_console: true
+logging_file_path: ""
+logging_json: false
