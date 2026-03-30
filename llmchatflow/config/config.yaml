@@ -27,3 +27,5 @@ logging_level: "INFO"
 logging_console: true
 logging_file_path: ""
 logging_json: false
+embedding_model: "BAAI/bge-small-zh-v1.5"
+embedding_device: ""

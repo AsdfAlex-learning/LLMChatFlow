@@ -46,6 +46,8 @@ class AppConfig:
     logging_console: bool = True
     logging_file_path: str = ""
     logging_json: bool = False
+    embedding_model: str = "BAAI/bge-small-zh-v1.5"
+    embedding_device: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

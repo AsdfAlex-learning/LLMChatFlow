@@ -235,6 +235,8 @@ LLMChatFlow/
 | **查询重写** | `query_rewrite_persist` | `none` | 落库方式 (none/memories_metadata) |
 | **Embedding** | `embedding_input_source` | `original` | 输入来源 (rewritten 优先 / original 固定) |
 | **Embedding** | `embedding_dimension` | `384` | 向量维度 |
+| **Embedding** | `embedding_model` | `BAAI/bge-small-zh-v1.5` | Embedding 模型（HuggingFace repo 或本地路径） |
+| **Embedding** | `embedding_device` | `` | 设备选择（`cpu`/`cuda`/`mps`，空为自动） |
 | **FAISS** | `faiss_topk` | `20` | 候选召回数 |
 | **FAISS** | `faiss_filter_strategy` | `global` | 过滤策略 (global/session_based) |
 | **评分重排** | `ranking_score_normalize` | `True` | 分值是否归一化 |
