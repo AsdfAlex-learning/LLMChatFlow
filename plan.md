@@ -331,7 +331,167 @@ LLMChatFlow/
 
 ---
 
-## 7. 未来扩展规划 (Future)
+## 7. 产品化能力升级：Memory Intelligence Layer
+
+### 7.1 核心判断
+当前阶段的关键任务不是继续堆叠功能，而是抽象出独立的 **Memory Intelligence Layer**。  
+目标是让系统从“存储 + 检索组件集合”升级为“可直接输出高质量记忆选择结果的决策系统”。
+
+### 7.2 双模式定义（必须并行支持）
+1. **Full Mode（端到端模式）**
+   - 流程：`User -> LLMChatFlow -> Response`
+   - 价值：提供完整对话编排与推理链路。
+2. **Headless Mode（无头记忆模式）**
+   - 流程：`User App -> LLMChatFlow(memory only) -> memories/context`
+   - 价值：让已有应用仅复用记忆智能层，不绑定完整聊天流程。
+
+### 7.3 产品化目标
+- 用户不需要先理解或重写评分公式即可获得可用结果。
+- 默认策略覆盖 80% 常见场景，支持开箱即用。
+- 高级用户可覆盖策略，但不是使用门槛。
+
+### 7.4 关键抽象：MemoryPolicy
+```python
+class MemoryPolicy:
+    def score(memory, query) -> float: ...
+    def select(memories) -> list: ...
+```
+
+设计原则：
+- **默认策略优先**：`DefaultMemoryPolicy` 作为系统默认入口。
+- **可覆盖扩展**：允许通过 `CustomPolicy` 注入自定义策略。
+- **接口稳定**：对业务暴露一致的 retrieve API。
+
+### 7.5 Headless API 设计
+默认调用：
+```python
+memories = memory_manager.retrieve(
+    query="用户输入",
+    user_id="xxx",
+    session_id="xxx",
+)
+```
+
+高级调用：
+```python
+memories = memory_manager.retrieve(
+    query,
+    policy=CustomPolicy(),
+)
+```
+
+约定：
+- 未传入 `policy` 时，自动使用 `DefaultMemoryPolicy`。
+
+### 7.6 DefaultMemoryPolicy 内部职责
+默认策略至少应封装以下流程：
+1. FAISS recall
+2. type-aware scoring
+3. bucket-based selection
+4. turn-level reconstruction
+
+对外表现为：
+- 输入 query
+- 输出高质量 memories/context
+
+### 7.7 目录结构调整建议
+在 `memory/` 下新增策略层：
+```text
+memory/
+  manager.py
+  retriever.py
+  scorer.py
+  policy/
+    base.py
+    default.py
+```
+
+### 7.8 实施优先级
+第一优先级：实现可落地版本 `DefaultMemoryPolicy`，要求：
+- 不需要额外配置即可运行
+- 输出稳定且可解释
+- 覆盖大多数真实检索场景
+
+### 7.9 Headless Mode 持久化边界与 Memory View
+#### 7.9.1 默认持久化原则
+- Headless Mode 返回的检索结果与格式化片段默认 **不落库**。
+- 仅持久化原始 memory 元数据与向量，不持久化 query 下的派生视图。
+
+原因：
+- 返回内容属于 derived data，生命周期短且强依赖当前上下文。
+- 持久化派生视图会导致 I/O 增长、数据冗余与格式版本不一致。
+
+#### 7.9.2 核心抽象：Memory View
+定义：
+- **Memory View = memory 在当前 query 下的临时表达**。
+
+设计约束：
+- 动态生成，不作为长期存储对象。
+- 可按下游用途输出不同格式（text / prompt / structured）。
+
+#### 7.9.3 分层拆分（Retrieval 与 View 解耦）
+1. **Memory Retrieval（数据层）**
+   - 输入：query/user_id/session_id
+   - 输出：`Memory` / `Turn` 结构化结果
+2. **Memory View Builder（表现层）**
+   - 输入：retrieval 结果
+   - 输出：文本视图、prompt 片段或结构化视图
+
+#### 7.9.4 Headless 返回约定
+方案 A（默认）：
+```python
+result = memory_manager.retrieve(...)
+{
+    "memories": [...],
+    "turns": [...],
+}
+```
+
+方案 B（可选）：
+```python
+view = memory_manager.build_view(memories)
+```
+
+约定：
+- 默认返回结构化数据，不强制返回最终 prompt。
+- 需要 prompt 时由 `build_view()` 显式生成。
+
+#### 7.9.5 缓存策略边界
+推荐缓存：
+1. Query-level retrieval cache（`query + user_id + session_id`）
+2. embedding cache（`query -> embedding`）
+
+不推荐缓存：
+- 最终 prompt 字符串（格式强相关，复用价值低且易失效）。
+
+#### 7.9.6 API 形态统一
+1. Headless Retrieval API
+```python
+memories = memory_manager.retrieve(query, user_id, session_id)
+```
+2. View Builder API
+```python
+view = memory_manager.build_view(memories)
+```
+3. Full Pipeline API
+```python
+response = chatflow.run(...)
+```
+
+#### 7.9.7 模块落地建议
+```text
+core/memory/
+  retrieval.py
+  view_builder.py
+```
+
+交付要求：
+- `retrieve()` 专注高质量结构化召回
+- `build_view()` 负责可控格式化与 token 约束
+
+---
+
+## 8. 未来扩展规划 (Future)
 *当前阶段暂不实现，仅做预留*：
 - **Memory Decay**: 基于时间的遗忘策略 (e.g., importance < 0.2 AND older than 90 days -> delete)。
 - **Memory Merging**: 合并相似记忆。
