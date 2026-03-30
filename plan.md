@@ -254,6 +254,10 @@ LLMChatFlow/
 | **记忆存储** | `importance_default` | `0.5` | 评分失败兜底值 |
 | **归档规则** | `archive_days` | `90` | 归档天数阈值 |
 | **归档规则** | `archive_importance` | `0.2` | 归档重要性阈值 |
+| **Logging** | `logging_level` | `INFO` | 日志层级 (DEBUG/INFO/WARNING/ERROR) |
+| **Logging** | `logging_console` | `True` | 是否启用控制台日志记录 |
+| **Logging** | `logging_file_path` | `` | 日志文件路径（空表示禁用） |
+| **Logging** | `logging_json` | `False` | 是否输出 JSON 格式日志 |
 
 ### 5.1 配置分层策略（库内部完整 + 外部精简）
 - **内部配置层（Full Config）**：保留完整配置项，用于覆盖检索、重排、上下文构建、记忆写入、归档等全部链路能力，作为框架内部统一运行基线。
@@ -267,6 +271,21 @@ LLMChatFlow/
 - **外部建议可配项**：`session_id_default`、`context_max_token`、`faiss_topk`、`system_prompt`。
 - **高级配置开放策略**：默认不要求业务侧配置 `ranking_type_weights_*`、`archive_days`、`faiss_write_strategy` 等高级参数，仅在业务明确需要时手动覆盖。
 - **交付约束**：库层不强制业务侧提供完整配置清单；业务侧仅对自身场景负责手动配置必要项，其余由库内部托管。
+
+### 5.3 日志记录（英文记录）
+目标：
+- 实现无需添加打印语句即可进行调试和生产监控。
+- 在需要时保持日志输出的一致性和机器可解析性。
+- 避免泄露机密信息或大型负载（嵌入式内容、API 密钥、完整提示）。
+默认行为：
+- 启用控制台日志记录，级别为“INFO”。
+- 可选的文件日志记录，通过 `logging_file_path` 进行配置。
+- 可选的 JSON 格式日志记录，通过 `logging_json` 用于日志管道的摄取。
+推荐的日志字段（如有）：
+- `会话 ID`、`轮次 ID`、`用户 ID`
+- `组件`（例如，工作流、上下文、存储、检索）
+- `延迟（毫秒）`
+- `输入项`、`输出项`（例如，候选项、排序项、选定项）
 
 ---
 
