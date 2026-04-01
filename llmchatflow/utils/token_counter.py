@@ -38,7 +38,8 @@ def _hybrid_estimate(text: str) -> int:
         en_count = 0
         sym_count = 0
 
-        for cn, en, sym in pattern.findall.finditer(text):
+        for m in pattern.finditer(text):
+            cn, en, sym = m.groups()
             if cn:
                 cn_count += 1
             elif en:
