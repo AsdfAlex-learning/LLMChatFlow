@@ -67,15 +67,16 @@ LLMChatFlow/
 │   │   ├── context/                    # 上下文构建
 │   │   ├── llm/                        # LLM 抽象与实现
 │   │   ├── memory/                     # 记忆管理、语义检索、重排
-│   │   ├── postprocess/                # 输出后处理
 │   │   ├── prompt/                     # Prompt 组装与 token 预算
 │   │   ├── session/                    # 会话状态管理
 │   │   └── workflow/
 │   │       └── engine.py               # 对话工作流编排
 │   └── utils/
 │       ├── embedding.py                # 向量工具
-│       ├── sqlite_helper.py            # SQLite 辅助封装
-│       └── token_counter.py            # Token 计数
+│       ├── faiss_helper.py             # FAISS 索引封装
+│       ├── sqlite_faiss_memory_store.py# SQLite + FAISS 记忆存储
+│       ├── token_counter.py            # Token 计数
+│       └── logging_utils.py            # Logging 配置
 │
 ├── examples/
 │   ├── cli_demo.py                     # Demo / 用例：本地 CLI 对话演示
