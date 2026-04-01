@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import sqlite3
 import time
 import uuid
@@ -29,114 +30,187 @@ class SQLiteFaissMemoryStore(MemoryStore):
         self._embedding_dim = int(embedding_dim) if embedding_dim else None
         self._faiss: Optional[FaissIndex] = None
         self._faiss_lock = threading.Lock()
-        self._main_thread_id = threading.get_ident()
-        self._main_conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        self._main_conn.execute("PRAGMA journal_mode=WAL;")
-        self._main_conn.execute("PRAGMA synchronous=NORMAL;")
-        self._tls = threading.local()
+        self._global_lock = threading.Lock()
+        self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self._conn.execute("PRAGMA journal_mode=WAL;")
+        self._conn.execute("PRAGMA synchronous=NORMAL;")
         self._batch_size = 5  # TODO: expose to config
-        self._tx_counts: Dict[int, int] = {}
-        self._tx_active: Dict[int, bool] = {}
+        self._pending_ops = 0
+        self._faiss_queue: "queue.Queue[Tuple[str, int, List[float]]]" = queue.Queue()
+        self._faiss_stop = threading.Event()
+        self._faiss_worker_thread = threading.Thread(target=self._faiss_worker, daemon=True)
         self._ensure_tables()
         self._ensure_faiss()
+        self._faiss_worker_thread.start()
 
-    def _get_conn(self) -> sqlite3.Connection:
-        tid = threading.get_ident()
-        if tid == self._main_thread_id:
-            return self._main_conn
-        conn = getattr(self._tls, "conn", None)
-        if conn is None:
-            conn = sqlite3.connect(self.db_path, check_same_thread=False)
-            conn.execute("PRAGMA journal_mode=WAL;")
-            conn.execute("PRAGMA synchronous=NORMAL;")
-            self._tls.conn = conn
-        return conn
+    def _faiss_worker(self) -> None:
+        while not self._faiss_stop.is_set():
+            try:
+                item = self._faiss_queue.get(timeout=0.2)
+            except queue.Empty:
+                continue
+
+            batch: List[Tuple[str, int, List[float]]] = [item]
+            try:
+                while len(batch) < 128:
+                    batch.append(self._faiss_queue.get_nowait())
+            except queue.Empty:
+                pass
+
+            if self._faiss is None:
+                continue
+
+            ids = [faiss_id for _, faiss_id, _ in batch]
+            vecs = [vec for _, _, vec in batch]
+            try:
+                with self._faiss_lock:
+                    self._faiss.add(ids, vecs, normalize=True)
+            except Exception as e:
+                logger.warning("FAISS async add failed (%s)", str(e))
+                continue
+
+            with self._global_lock:
+                try:
+                    if not self._conn.in_transaction:
+                        self._conn.execute("BEGIN")
+                    cur = self._conn.cursor()
+                    cur.executemany(
+                        "UPDATE faiss_vectors SET faiss_dirty=0 WHERE faiss_id=?",
+                        [(int(i),) for i in ids],
+                    )
+                    self._conn.commit()
+                except Exception:
+                    self._conn.rollback()
+                    raise
 
     def _ensure_tables(self):
-        conn = self._get_conn()
-        cur = conn.cursor()
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS memories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                uuid TEXT NOT NULL UNIQUE,
-                turn_id TEXT,
-                user_id TEXT,
-                session_id TEXT NOT NULL,
-                role TEXT NOT NULL,
-                content TEXT NOT NULL,
-                memory_type TEXT NOT NULL DEFAULT 'episodic',
-                importance REAL NOT NULL,
-                timestamp INTEGER NOT NULL,
-                embedding TEXT,
-                faiss_dirty INTEGER NOT NULL DEFAULT 1
+        with self._global_lock:
+            cur = self._conn.cursor()
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS kv (
+                    k TEXT PRIMARY KEY,
+                    v TEXT NOT NULL
+                )
+                """
             )
-            """
-        )
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_memories_session_time ON memories(session_id, timestamp)")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_memories_faiss_dirty ON memories(faiss_dirty)")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_memories_user ON memories(user_id)")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_memories_turn ON memories(turn_id)")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(memory_type)")
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS kv (
-                k TEXT PRIMARY KEY,
-                v TEXT NOT NULL
+
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS session (
+                    session_id TEXT PRIMARY KEY,
+                    owner_id TEXT,
+                    timestamp INTEGER,
+                    mode TEXT,
+                    memory_policy TEXT,
+                    metadata TEXT
+                )
+                """
             )
-            """
-        )
-        conn.commit()
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_session_owner ON session(owner_id)")
 
-        migrated_flag = self._get_kv("migrated") or "0"
-        if migrated_flag != "1":
-            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='messages'")
-            has_messages = cur.fetchone() is not None
-            if has_messages:
-                cur.execute("SELECT COUNT(1) FROM memories")
-                mem_count = int(cur.fetchone()[0])
-                if mem_count == 0:
-                    cur.execute(
-                        "SELECT session_id, role, text, embedding, importance, timestamp FROM messages ORDER BY id ASC"
-                    )
-                    rows = cur.fetchall()
-                    for session_id, role, text, embedding, importance, ts in rows:
-                        self._insert_memory_row(
-                            cur=cur,
-                            uuid_str=str(uuid.uuid4()),
-                            turn_id=None,
-                            user_id=None,
-                            session_id=session_id,
-                            role=role,
-                            content=text,
-                            memory_type="episodic",
-                            importance=float(importance),
-                            timestamp=int(ts),
-                            embedding_json=embedding,
-                            faiss_dirty=1,
-                        )
-                    conn.commit()
-            self._set_kv("migrated", "1")
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS session_participants (
+                    uuid TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL,
+                    participant_id TEXT NOT NULL,
+                    role TEXT NOT NULL
+                )
+                """
+            )
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_sp_session ON session_participants(session_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_sp_participant ON session_participants(participant_id)")
 
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS memory (
+                    uuid TEXT PRIMARY KEY,
+                    turn_id TEXT,
+                    user_id TEXT,
+                    session_id TEXT,
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    memory_type TEXT NOT NULL,
+                    memory_scope TEXT NOT NULL,
+                    importance INTEGER NOT NULL,
+                    decay_rate REAL NOT NULL,
+                    timestamp INTEGER NOT NULL,
+                    metadata TEXT
+                )
+                """
+            )
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_memory_session_time ON memory(session_id, timestamp)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_memory_user ON memory(user_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_memory_turn ON memory(turn_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_memory_type ON memory(memory_type)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_memory_scope ON memory(memory_scope)")
+
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS faiss_vectors (
+                    uuid TEXT PRIMARY KEY,
+                    faiss_id INTEGER NOT NULL UNIQUE,
+                    embedding TEXT NOT NULL,
+                    faiss_dirty INTEGER NOT NULL DEFAULT 1
+                )
+                """
+            )
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_faiss_vectors_dirty ON faiss_vectors(faiss_dirty)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_faiss_vectors_faiss_id ON faiss_vectors(faiss_id)")
+
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS faiss_kv (
+                    k TEXT PRIMARY KEY,
+                    v TEXT NOT NULL
+                )
+                """
+            )
+            self._conn.commit()
+    
     def _get_kv(self, key: str) -> Optional[str]:
-        conn = self._get_conn()
-        cur = conn.cursor()
+        cur = self._conn.cursor()
         cur.execute("SELECT v FROM kv WHERE k=?", (key,))
         row = cur.fetchone()
         return str(row[0]) if row else None
 
     def _set_kv(self, key: str, value: str) -> None:
-        conn = self._get_conn()
-        cur = conn.cursor()
-        cur.execute("INSERT INTO kv(k, v) VALUES(?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v", (key, value))
-        conn.commit()
+        cur = self._conn.cursor()
+        cur.execute(
+            "INSERT INTO kv(k, v) VALUES(?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v",
+            (key, value),
+        )
+
+    def _faiss_get_kv(self, key: str) -> Optional[str]:
+        cur = self._conn.cursor()
+        cur.execute("SELECT v FROM faiss_kv WHERE k=?", (key,))
+        row = cur.fetchone()
+        return str(row[0]) if row else None
+
+    def _faiss_set_kv(self, key: str, value: str) -> None:
+        cur = self._conn.cursor()
+        cur.execute(
+            "INSERT INTO faiss_kv(k, v) VALUES(?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v",
+            (key, value),
+        )
+
+    def _allocate_faiss_id_locked(self) -> int:
+        raw = self._faiss_get_kv("next_faiss_id")
+        if raw is None:
+            self._faiss_set_kv("next_faiss_id", "1")
+            return 0
+        current = int(raw)
+        self._faiss_set_kv("next_faiss_id", str(current + 1))
+        return current
 
     def _ensure_faiss(self) -> None:
         if self._faiss is not None:
             return
         dim = self._embedding_dim
         if dim is None:
-            stored = self._get_kv("embedding_dim")
+            with self._global_lock:
+                stored = self._get_kv("embedding_dim")
             if stored:
                 dim = int(stored)
                 self._embedding_dim = dim
@@ -150,67 +224,21 @@ class SQLiteFaissMemoryStore(MemoryStore):
 
     def _ensure_faiss_dim(self, embedding: Sequence[float]) -> None:
         if self._embedding_dim is None:
-            self._embedding_dim = int(len(embedding))
-            self._set_kv("embedding_dim", str(self._embedding_dim))
+            with self._global_lock:
+                try:
+                    if not self._conn.in_transaction:
+                        self._conn.execute("BEGIN")
+                    self._embedding_dim = int(len(embedding))
+                    self._set_kv("embedding_dim", str(self._embedding_dim))
+                    self._pending_ops_main = getattr(self, "_pending_ops_main", 0) + 1
+                    if self._pending_ops_main >= self._batch_size:
+                        self._conn.commit()
+                        self._pending_ops_main = 0
+                except Exception:
+                    self._conn.rollback()
+                    self._pending_ops_main = 0
+                    raise
         self._ensure_faiss()
-
-    def _insert_memory_row(
-        self,
-        cur: sqlite3.Cursor,
-        uuid_str: str,
-        turn_id: Optional[str],
-        user_id: Optional[str],
-        session_id: str,
-        role: str,
-        content: str,
-        memory_type: str,
-        importance: float,
-        timestamp: int,
-        embedding_json: Optional[str],
-        faiss_dirty: int,
-    ) -> int:
-        cur.execute(
-            """
-            INSERT INTO memories(uuid, turn_id, user_id, session_id, role, content, memory_type, importance, timestamp, embedding, faiss_dirty)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                uuid_str,
-                turn_id,
-                user_id,
-                session_id,
-                role,
-                content,
-                memory_type,
-                float(importance),
-                int(timestamp),
-                embedding_json,
-                int(faiss_dirty),
-            ),
-        )
-        return int(cur.lastrowid)
-
-    def _thread_state_begin(self, conn: sqlite3.Connection) -> None:
-        tid = threading.get_ident()
-        if not self._tx_active.get(tid):
-            conn.execute("BEGIN")
-            self._tx_active[tid] = True
-            self._tx_counts[tid] = 0
-
-    def _thread_state_commit_if_needed(self, conn: sqlite3.Connection) -> None:
-        tid = threading.get_ident()
-        cnt = int(self._tx_counts.get(tid, 0))
-        if cnt >= self._batch_size:
-            conn.commit()
-            self._tx_active[tid] = False
-            self._tx_counts[tid] = 0
-
-    def _thread_state_rollback(self, conn: sqlite3.Connection) -> None:
-        tid = threading.get_ident()
-        if self._tx_active.get(tid):
-            conn.rollback()
-            self._tx_active[tid] = False
-            self._tx_counts[tid] = 0
 
     def insert_memory(
         self,
@@ -223,77 +251,85 @@ class SQLiteFaissMemoryStore(MemoryStore):
         user_id: Optional[str] = None,
         turn_id: Optional[str] = None,
         memory_type: str = "episodic",
-    ) -> int:
+    ) -> str:
         ts = int(timestamp if timestamp is not None else time.time())
         self._ensure_faiss_dim(embedding)
         embedding_json = json.dumps(list(embedding))
-        conn = self._get_conn()
-        cur = conn.cursor()
-        self._thread_state_begin(conn)
         mem_uuid = str(uuid.uuid4())
-        mem_id = self._insert_memory_row(
-            cur=cur,
-            uuid_str=mem_uuid,
-            turn_id=turn_id,
-            user_id=user_id,
-            session_id=session_id,
-            role=role,
-            content=content,
-            memory_type=memory_type,
-            importance=float(importance),
-            timestamp=ts,
-            embedding_json=embedding_json,
-            faiss_dirty=1,
-        )
-        try:
-            if self._faiss is not None:
-                with self._faiss_lock:
-                    self._faiss.add([mem_id], [embedding], normalize=True)
-                self._set_faiss_dirty(mem_id, 0)
-            self._tx_counts[threading.get_ident()] = self._tx_counts.get(threading.get_ident(), 0) + 1
-            self._thread_state_commit_if_needed(conn)
-        except Exception:
-            self._thread_state_rollback(conn)
-            raise
-        return int(mem_id)
 
-    def _set_faiss_dirty(self, memory_id: int, dirty: int) -> None:
-        conn = self._get_conn()
-        cur = conn.cursor()
-        cur.execute("UPDATE memories SET faiss_dirty=? WHERE id=?", (int(dirty), int(memory_id)))
-        # Do not force commit here; rely on batch commit
+        with self._global_lock:
+            try:
+                if not self._conn.in_transaction:
+                    self._conn.execute("BEGIN")
+                cur = self._conn.cursor()
+                faiss_id = int(self._allocate_faiss_id_locked())
+                cur.execute(
+                    """
+                    INSERT INTO memory(
+                        uuid, turn_id, user_id, session_id, role, content, memory_type, memory_scope,
+                        importance, decay_rate, timestamp, metadata
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        mem_uuid,
+                        turn_id,
+                        user_id,
+                        session_id,
+                        role,
+                        content,
+                        memory_type,
+                        "session",
+                        int(round(float(importance) * 100.0)),
+                        0.1,
+                        int(ts),
+                        "{}",
+                    ),
+                )
+                cur.execute(
+                    "INSERT INTO faiss_vectors(uuid, faiss_id, embedding, faiss_dirty) VALUES (?, ?, ?, 1)",
+                    (mem_uuid, faiss_id, embedding_json),
+                )
+                self._pending_ops_main = getattr(self, "_pending_ops_main", 0) + 1
+                if self._pending_ops_main >= self._batch_size:
+                    self._conn.commit()
+                    self._pending_ops_main = 0
+            except Exception:
+                self._conn.rollback()
+                self._pending_ops_main = 0
+                raise
+
+        with self._global_lock:
+            try:
+                self._faiss_queue.put_nowait((mem_uuid, faiss_id, list(embedding)))
+            except queue.Full:
+                pass
+        return mem_uuid
 
     def rebuild_faiss(self, max_batch: int = 2000) -> int:
-        self._ensure_faiss()
-        if self._faiss is None:
-            return 0
-        conn = self._get_conn()
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT id, embedding FROM memories WHERE faiss_dirty=1 AND embedding IS NOT NULL ORDER BY id ASC LIMIT ?",
-            (int(max_batch),),
-        )
-        rows = cur.fetchall()
+        with self._global_lock:
+            cur = self._conn.cursor()
+            cur.execute(
+                "SELECT uuid, faiss_id, embedding FROM faiss_vectors WHERE faiss_dirty=1 ORDER BY rowid ASC LIMIT ?",
+                (int(max_batch),),
+            )
+            rows = cur.fetchall()
         if not rows:
             return 0
-        ids: List[int] = []
-        vecs: List[List[float]] = []
-        for mid, emb_json in rows:
+        enqueued = 0
+        for uuid_str, faiss_id, emb_json in rows:
             try:
                 emb = json.loads(emb_json)
                 if not isinstance(emb, list):
                     continue
-                ids.append(int(mid))
-                vecs.append([float(x) for x in emb])
+                with self._global_lock:
+                    try:
+                        self._faiss_queue.put_nowait((str(uuid_str), int(faiss_id), [float(x) for x in emb]))
+                        enqueued += 1
+                    except queue.Full:
+                        break
             except Exception:
                 continue
-        if not ids:
-            return 0
-        with self._faiss_lock:
-            self._faiss.add(ids, vecs, normalize=True)
-        cur.executemany("UPDATE memories SET faiss_dirty=0 WHERE id=?", [(i,) for i in ids])
-        conn.commit()
-        return len(ids)
+        return enqueued
 
     def insert_message(
         self,
@@ -319,63 +355,39 @@ class SQLiteFaissMemoryStore(MemoryStore):
         )
 
     def fetch_messages_by_session(self, session_id: str) -> List[Dict[str, Any]]:
-        conn = self._get_conn()
-        cur = conn.cursor()
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='memories'")
-        has_memories = cur.fetchone() is not None
-        if has_memories:
+        with self._global_lock:
+            cur = self._conn.cursor()
             cur.execute(
-                "SELECT role, content, embedding, importance, timestamp, memory_type FROM memories WHERE session_id=? ORDER BY timestamp ASC",
+                "SELECT role, content, importance, timestamp, memory_type FROM memory WHERE session_id=? ORDER BY timestamp ASC",
                 (session_id,),
             )
             rows = cur.fetchall()
-            result: List[Dict[str, Any]] = []
-            for role, content, embedding, importance, ts, memory_type in rows:
-                result.append(
-                    {
-                        "role": role,
-                        "text": content,
-                        "embedding": json.loads(embedding) if embedding else [],
-                        "importance": float(importance),
-                        "timestamp": int(ts),
-                        "memory_type": str(memory_type),
-                    }
-                )
-            return result
-
-        cur.execute(
-            "SELECT role, text, embedding, importance, timestamp FROM messages WHERE session_id=? ORDER BY timestamp ASC",
-            (session_id,),
-        )
-        rows = cur.fetchall()
-        result2: List[Dict[str, Any]] = []
-        for role, text, embedding, importance, ts in rows:
-            result2.append(
+        result: List[Dict[str, Any]] = []
+        for role, content, importance, ts, memory_type in rows:
+            result.append(
                 {
                     "role": role,
-                    "text": text,
-                    "embedding": json.loads(embedding),
-                    "importance": float(importance),
+                    "text": content,
+                    "importance": float(importance) / 100.0,
                     "timestamp": int(ts),
-                    "memory_type": "episodic",
+                    "memory_type": str(memory_type),
                 }
             )
-        return result2
+        return result
 
-    def fetch_memories_by_ids(self, ids: Sequence[int]) -> List[Dict[str, Any]]:
-        if not ids:
+    def fetch_memories_by_uuids(self, uuids: Sequence[str]) -> List[Dict[str, Any]]:
+        if not uuids:
             return []
-        placeholders = ",".join(["?"] * len(ids))
-        conn = self._get_conn()
-        cur = conn.cursor()
-        cur.execute(
-            f"SELECT id, uuid, turn_id, user_id, session_id, role, content, memory_type, importance, timestamp, embedding FROM memories WHERE id IN ({placeholders})",
-            tuple(int(x) for x in ids),
-        )
-        rows = cur.fetchall()
-        by_id: Dict[int, Dict[str, Any]] = {}
+        placeholders = ",".join(["?"] * len(uuids))
+        with self._global_lock:
+            cur = self._conn.cursor()
+            cur.execute(
+                f"SELECT uuid, turn_id, user_id, session_id, role, content, memory_type, memory_scope, importance, decay_rate, timestamp, metadata FROM memory WHERE uuid IN ({placeholders})",
+                tuple(str(x) for x in uuids),
+            )
+            rows = cur.fetchall()
+        by_id: Dict[str, Dict[str, Any]] = {}
         for (
-            mid,
             uuid_str,
             turn_id,
             user_id,
@@ -383,12 +395,14 @@ class SQLiteFaissMemoryStore(MemoryStore):
             role,
             content,
             memory_type,
+            memory_scope,
             importance,
+            decay_rate,
             ts,
-            emb_json,
+            metadata_json,
         ) in rows:
-            by_id[int(mid)] = {
-                "id": int(mid),
+            by_id[str(uuid_str)] = {
+                "id": str(uuid_str),
                 "uuid": str(uuid_str),
                 "turn_id": turn_id,
                 "user_id": user_id,
@@ -396,11 +410,13 @@ class SQLiteFaissMemoryStore(MemoryStore):
                 "role": str(role),
                 "text": str(content),
                 "memory_type": str(memory_type),
-                "importance": float(importance),
+                "memory_scope": str(memory_scope),
+                "importance": float(importance) / 100.0,
+                "decay_rate": float(decay_rate),
                 "timestamp": int(ts),
-                "embedding": json.loads(emb_json) if emb_json else [],
+                "metadata": json.loads(metadata_json) if metadata_json else {},
             }
-        return [by_id[int(x)] for x in ids if int(x) in by_id]
+        return [by_id[str(x)] for x in uuids if str(x) in by_id]
 
     def search_records(
         self,
@@ -417,37 +433,51 @@ class SQLiteFaissMemoryStore(MemoryStore):
         k = max(want, want * int(oversample))
         with self._faiss_lock:
             result = self._faiss.search(query_embedding, k, normalize=True)
-        ids = [int(x) for x in result.ids.tolist() if int(x) != -1]
+        faiss_ids = [int(x) for x in result.ids.tolist() if int(x) != -1]
         scores = [float(x) for x in result.scores.tolist() if x is not None]
-        if not ids:
+        if not faiss_ids:
             return []
 
         selected_ids: List[int] = []
         selected_scores: List[float] = []
         if filter_strategy == "session_based":
-            conn = self._get_conn()
-            placeholders = ",".join(["?"] * len(ids))
-            cur = conn.cursor()
-            cur.execute(
-                f"SELECT id FROM memories WHERE session_id=? AND id IN ({placeholders})",
-                (session_id, *[int(x) for x in ids]),
-            )
-            allowed = {int(r[0]) for r in cur.fetchall()}
-            for i, mid in enumerate(ids):
+            with self._global_lock:
+                placeholders = ",".join(["?"] * len(faiss_ids))
+                cur = self._conn.cursor()
+                cur.execute(
+                    f"SELECT fv.faiss_id FROM faiss_vectors fv JOIN memory m ON m.uuid=fv.uuid WHERE m.session_id=? AND fv.faiss_id IN ({placeholders})",
+                    (session_id, *[int(x) for x in faiss_ids]),
+                )
+                allowed = {int(r[0]) for r in cur.fetchall()}
+            for i, mid in enumerate(faiss_ids):
                 if mid in allowed:
                     selected_ids.append(mid)
                     selected_scores.append(scores[i] if i < len(scores) else 0.0)
                     if len(selected_ids) >= want:
                         break
         else:
-            selected_ids = ids[:want]
+            selected_ids = faiss_ids[:want]
             selected_scores = scores[:want]
 
-        records = self.fetch_memories_by_ids(selected_ids)
-        by_id = {int(r["id"]): r for r in records}
+        with self._global_lock:
+            placeholders = ",".join(["?"] * len(selected_ids)) if selected_ids else "?"
+            cur = self._conn.cursor()
+            cur.execute(
+                f"SELECT uuid, faiss_id FROM faiss_vectors WHERE faiss_id IN ({placeholders})",
+                tuple(int(x) for x in selected_ids) if selected_ids else (-1,),
+            )
+            id_to_uuid = {int(fid): str(u) for (u, fid) in cur.fetchall()}
+        selected_uuids = [id_to_uuid.get(int(fid), "") for fid in selected_ids]
+        selected_uuids = [u for u in selected_uuids if u]
+
+        records = self.fetch_memories_by_uuids(selected_uuids)
+        by_id = {str(r["id"]): r for r in records}
         out: List[Dict[str, Any]] = []
-        for i, mid in enumerate(selected_ids):
-            r = by_id.get(int(mid))
+        for i, fid in enumerate(selected_ids):
+            uuid_str = id_to_uuid.get(int(fid))
+            if not uuid_str:
+                continue
+            r = by_id.get(str(uuid_str))
             if not r:
                 continue
             r["similarity"] = max(0.0, float(selected_scores[i] if i < len(selected_scores) else 0.0))
