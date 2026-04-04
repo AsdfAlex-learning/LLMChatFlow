@@ -46,3 +46,4 @@ claude-*.env
 *.claude.log
 anthropic*.json
 anthropic*.env
+CLAUDE.md
