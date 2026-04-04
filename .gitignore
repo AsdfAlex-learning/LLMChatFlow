@@ -38,3 +38,11 @@ ENV/
 
 # Project specific
 _legacy/
+
+# Claude related
+.claude/
+claude-*.json
+claude-*.env
+*.claude.log
+anthropic*.json
+anthropic*.env
