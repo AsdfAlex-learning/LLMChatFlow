@@ -2,6 +2,11 @@ import math
 from typing import List, Dict, Tuple
 import time
 
+# Importance constants
+IMPORTANCE_HABIT = 1.0  # Represents a user habit or long-term preference
+IMPORTANCE_USER_MSG = 0.9
+IMPORTANCE_AI_MSG = 0.7
+
 
 def temporal_score(ts: int, now_ts: int, lam: float) -> float:
     delta_days = max(0.0, (now_ts - ts) / 86400.0)
@@ -50,3 +55,34 @@ def compute_final_scores(
         out.append((final, r))
     out.sort(key=lambda x: x[0], reverse=True)
     return out
+
+
+def compute_final_scores_by_type(
+    records: List[Dict],
+    similarities: List[float],
+    lam: float,
+    type_weights: Dict[str, Dict[str, float]],
+    default_weights: Dict[str, float],
+    normalize: bool = True,
+) -> List[Tuple[float, Dict]]:
+    now_ts = int(time.time())
+    scored: List[Tuple[float, Dict]] = []
+    for i, r in enumerate(records):
+        sim = float(similarities[i] if i < len(similarities) else float(r.get("similarity", 0.0) or 0.0))
+        imp = float(r.get("importance", 0.0) or 0.0)
+        ts = int(r.get("timestamp", now_ts) or now_ts)
+        decay = temporal_score(ts, now_ts, lam)
+        mtype = str(r.get("memory_type", "") or "")
+        w = type_weights.get(mtype) or default_weights
+        alpha = float(w.get("alpha", default_weights.get("alpha", 0.5)))
+        beta = float(w.get("beta", default_weights.get("beta", 0.2)))
+        theta = float(w.get("theta", default_weights.get("theta", 0.3)))
+        final = alpha * sim + beta * imp + theta * decay
+        r["_score"] = final
+        r["_time_decay"] = decay
+        scored.append((final, r))
+    if normalize and scored:
+        mx = max(x[0] for x in scored) or 1.0
+        scored = [(x[0] / mx, {**x[1], "_score": x[0] / mx}) for x in scored]
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return scored
