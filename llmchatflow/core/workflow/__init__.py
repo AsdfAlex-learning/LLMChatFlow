@@ -1,2 +1,2 @@
 from .engine import SemanticMemoryEngine
-from .base import WorkflowEngine
+__all__ = ["SemanticMemoryEngine"]

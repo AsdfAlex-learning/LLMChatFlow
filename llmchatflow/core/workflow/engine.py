@@ -1,13 +1,15 @@
+import logging
 import time
-from .base import WorkflowEngine
 from ..llm.base import LLMClient
 from ..session.base import ISession
 from ..context.base import ContextBuilder
 from ..memory.storage import MemoryStore
 from ...utils.embedding import SentenceEmbedding
 
+logger = logging.getLogger(__name__)
 
-class SemanticMemoryEngine(WorkflowEngine):
+
+class SemanticMemoryEngine:
     def __init__(
         self,
         session: ISession,
@@ -23,7 +25,9 @@ class SemanticMemoryEngine(WorkflowEngine):
         self.embedder = embedder
 
     def process(self, user_input: str, **kwargs) -> str:
+        t0 = time.time()
         session_id = self.session.session_id
+        logger.info("Workflow start (session_id=%s)", session_id)
         user_emb = self.embedder.embed(user_input)
         messages = self.context_builder.build_messages(
             session_id, user_input, current_embedding=user_emb
@@ -51,4 +55,5 @@ class SemanticMemoryEngine(WorkflowEngine):
             MTEW=0.8,
             MTEW_decay=0.1,
         )
+        logger.info("Workflow done (session_id=%s, latency_ms=%d)", session_id, int((time.time() - t0) * 1000))
         return reply
