@@ -4,23 +4,27 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from llmchatflow.config import load_config
 from llmchatflow.core.llm.openai_compatible import OpenAICompatibleClient
 from llmchatflow.core.session.local import LocalSession
 from llmchatflow.core.context.structured import StructuredContextBuilder
 from llmchatflow.core.workflow.engine import SemanticMemoryEngine
 from llmchatflow.adapters.cli.adapter import CLIAdapter
-from llmchatflow.utils.sqlite_helper import SQLiteMemoryStore
+from llmchatflow.utils.sqlite_faiss_memory_store import SQLiteFaissMemoryStore
 from llmchatflow.utils.embedding import SentenceEmbedding
+from llmchatflow.utils.logging_utils import configure_logging_from_config
 
 
 def main():
     load_dotenv()
+    cfg = load_config()
+    configure_logging_from_config(cfg)
     if not os.getenv("OPENAI_API_KEY"):
         print("Please set OPENAI_API_KEY in .env")
         return
     session = LocalSession("cli_session_001")
     llm_client = OpenAICompatibleClient()
-    store = SQLiteMemoryStore("memory.db")
+    store = SQLiteFaissMemoryStore("memory.db")
     embedder = SentenceEmbedding()
     ctx_builder = StructuredContextBuilder(
         store=store,
