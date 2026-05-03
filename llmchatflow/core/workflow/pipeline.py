@@ -6,7 +6,6 @@ from typing import List, Optional, Protocol
 
 from ..context.base import ContextBuilder
 from ..llm.base import LLMClient
-from ..session.base import ISession
 from ..memory.storage import MemoryStore
 from ...utils.embedding import SentenceEmbedding
 
@@ -17,6 +16,7 @@ logger = logging.getLogger(__name__)
 class PipelineContext:
     session_id: str
     user_input: str
+    user_id: str = ""
     embedding: Optional[List[float]] = None
     retrieved_memories: Optional[List] = None
     messages: Optional[List] = None
@@ -62,17 +62,23 @@ class StorageHandler:
         self.embedder = embedder
 
     def run(self, ctx: PipelineContext) -> None:
+        import uuid
+
         ts = __import__("time").time()
         now_ts = int(ts)
+        turn_id = str(uuid.uuid4())
         self.store.insert_message(
             ctx.session_id,
             "user",
             ctx.user_input,
             ctx.embedding or [],
-            0.9,
+            0.9,  # user messages get higher default importance
             now_ts,
-            MTEW=0.8,
-            MTEW_decay=0.1,
+            user_id=ctx.user_id,
+            turn_id=turn_id,
+            memory_type="episodic",
+            memory_scope="session",
+            decay_rate=0.1,
         )
         ai_emb = self.embedder.embed(ctx.reply or "")
         self.store.insert_message(
@@ -80,12 +86,15 @@ class StorageHandler:
             "assistant",
             ctx.reply or "",
             ai_emb,
-            0.7,
+            0.7,  # assistant messages get lower default importance
             now_ts,
-            MTEW=0.8,
-            MTEW_decay=0.1,
+            user_id=ctx.user_id,
+            turn_id=turn_id,
+            memory_type="episodic",
+            memory_scope="session",
+            decay_rate=0.1,
         )
-        logger.info("Storage done")
+        logger.info("Storage done (turn_id=%s)", turn_id)
 
 
 class Pipeline:
