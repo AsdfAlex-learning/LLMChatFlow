@@ -251,6 +251,8 @@ class SQLiteFaissMemoryStore(MemoryStore):
         user_id: Optional[str] = None,
         turn_id: Optional[str] = None,
         memory_type: str = "episodic",
+        memory_scope: str = "session",
+        decay_rate: float = 0.1,
     ) -> str:
         ts = int(timestamp if timestamp is not None else time.time())
         self._ensure_faiss_dim(embedding)
@@ -278,9 +280,9 @@ class SQLiteFaissMemoryStore(MemoryStore):
                         role,
                         content,
                         memory_type,
-                        "session",
+                        memory_scope,
                         int(round(float(importance) * 100.0)),
-                        0.1,
+                        decay_rate,
                         int(ts),
                         "{}",
                     ),
@@ -339,8 +341,11 @@ class SQLiteFaissMemoryStore(MemoryStore):
         embedding: List[float],
         importance: float,
         timestamp: int,
-        MTEW: float = 0.8,
-        MTEW_decay: float = 0.1,
+        user_id: Optional[str] = None,
+        turn_id: Optional[str] = None,
+        memory_type: str = "episodic",
+        memory_scope: str = "session",
+        decay_rate: float = 0.1,
     ) -> None:
         self.insert_memory(
             session_id=session_id,
@@ -349,9 +354,11 @@ class SQLiteFaissMemoryStore(MemoryStore):
             embedding=embedding,
             importance=importance,
             timestamp=timestamp,
-            user_id=None,
-            turn_id=None,
-            memory_type="episodic",
+            user_id=user_id,
+            turn_id=turn_id,
+            memory_type=memory_type,
+            memory_scope=memory_scope,
+            decay_rate=decay_rate,
         )
 
     def fetch_messages_by_session(self, session_id: str) -> List[Dict[str, Any]]:
