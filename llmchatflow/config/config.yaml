@@ -29,3 +29,8 @@ logging_file_path: ""
 logging_json: false
 embedding_model: "BAAI/bge-small-zh-v1.5"
 embedding_device: ""
+llm_provider: "openai"
+llm_model: "gpt-3.5-turbo"
+api_key: ""
+base_url: ""
+storage_path: "memory.db"

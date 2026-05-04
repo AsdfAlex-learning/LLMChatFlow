@@ -48,6 +48,11 @@ class AppConfig:
     logging_json: bool = False
     embedding_model: str = "BAAI/bge-small-zh-v1.5"
     embedding_device: str = ""
+    llm_provider: str = "openai"
+    llm_model: str = "gpt-3.5-turbo"
+    api_key: str = ""
+    base_url: str = ""
+    storage_path: str = "memory.db"
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
