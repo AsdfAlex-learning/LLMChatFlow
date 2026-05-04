@@ -218,9 +218,23 @@ class SQLiteFaissMemoryStore(MemoryStore):
             return
         try:
             self._faiss = FaissIndex(self._faiss_index_path, dim)
-        except ImportError as e:
-            logger.warning("FAISS is not available, vector search will be disabled (%s)", str(e))
-            self._faiss = None
+        except (ImportError, Exception) as e:
+            logger.warning("FAISS init failed, initializing empty index (%s)", str(e))
+            try:
+                self._faiss = FaissIndex(None, dim)
+                logger.info("Empty FaissIndex created (dim=%d), scheduling async rebuild", dim)
+                threading.Thread(target=self._async_rebuild_faiss, daemon=True).start()
+            except Exception as e2:
+                logger.warning("Empty FAISS init also failed, vector search disabled (%s)", str(e2))
+                self._faiss = None
+
+    def _async_rebuild_faiss(self) -> None:
+        """Background thread: rebuild FAISS index from SQLite faiss_vectors table."""
+        try:
+            count = self.rebuild_faiss(max_batch=2000)
+            logger.info("FAISS async rebuild completed: %d vectors restored", count)
+        except Exception as e:
+            logger.warning("FAISS async rebuild failed (%s)", str(e))
 
     def _ensure_faiss_dim(self, embedding: Sequence[float]) -> None:
         if self._embedding_dim is None:
@@ -298,7 +312,47 @@ class SQLiteFaissMemoryStore(MemoryStore):
             except Exception:
                 self._conn.rollback()
                 self._pending_ops_main = 0
-                raise
+                success = False
+                for retry_n in range(2):
+                    time.sleep(0.1)
+                    try:
+                        if not self._conn.in_transaction:
+                            self._conn.execute("BEGIN")
+                        cur = self._conn.cursor()
+                        cur.execute(
+                            "INSERT INTO memory(uuid, turn_id, user_id, session_id, role, content, memory_type, memory_scope, importance, decay_rate, timestamp, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            (mem_uuid, turn_id, user_id, session_id, role, content, memory_type, memory_scope, int(round(float(importance) * 100.0)), decay_rate, int(ts), "{}"),
+                        )
+                        cur.execute(
+                            "INSERT INTO faiss_vectors(uuid, faiss_id, embedding, faiss_dirty) VALUES (?, ?, ?, 1)",
+                            (mem_uuid, faiss_id, embedding_json),
+                        )
+                        self._pending_ops_main = getattr(self, "_pending_ops_main", 0) + 1
+                        if self._pending_ops_main >= self._batch_size:
+                            self._conn.commit()
+                            self._pending_ops_main = 0
+                        success = True
+                        break
+                    except Exception:
+                        self._conn.rollback()
+                        self._pending_ops_main = 0
+                        continue
+                if not success:
+                    try:
+                        pending_dir = os.path.dirname(self.db_path) if os.path.dirname(self.db_path) else "."
+                        pending_file = os.path.join(pending_dir, "pending_writes.jsonl")
+                        pending_record = {
+                            "session_id": session_id, "role": role, "content": content,
+                            "embedding": embedding, "importance": importance, "timestamp": ts,
+                            "user_id": user_id, "turn_id": turn_id, "memory_type": memory_type,
+                            "memory_scope": memory_scope, "decay_rate": decay_rate,
+                        }
+                        with open(pending_file, "a", encoding="utf-8") as f:
+                            f.write(json.dumps(pending_record) + "\n")
+                        logger.error("SQLite write failed after retries, saved to pending_writes.jsonl (uuid=%s)", mem_uuid)
+                    except Exception as write_err:
+                        logger.error("CRITICAL: Failed to save pending write to file (%s)", str(write_err))
+                    raise
 
         with self._global_lock:
             try:
