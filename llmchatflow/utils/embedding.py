@@ -4,12 +4,13 @@ import unicodedata
 import logging
 import threading
 from typing import List, Optional
-from sentence_transformers import SentenceTransformer
 from llmchatflow.config import load_config
 
 
 class SentenceEmbedding:
     def __init__(self, model_name: Optional[str] = None, dim: int = 512, device: Optional[str] = None):
+        from sentence_transformers import SentenceTransformer
+
         cfg = load_config()
         chosen_model = model_name or getattr(cfg, "embedding_model", "BAAI/bge-small-zh-v1.5")
         chosen_device = device if device is not None else (getattr(cfg, "embedding_device", "") or None)

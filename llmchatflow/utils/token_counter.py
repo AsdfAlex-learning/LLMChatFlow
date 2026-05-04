@@ -1,6 +1,5 @@
 import logging
 from typing import Optional
-from transformers import AutoTokenizer
 from functools import lru_cache
 import re
 
@@ -8,6 +7,8 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=128)
 def get_tokenizer(model: Optional[str] = None):
+    from transformers import AutoTokenizer
+
     model_name = model or "gpt2"
     try:
         return AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)

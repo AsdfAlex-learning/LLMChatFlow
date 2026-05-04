@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "black", "isort"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "black", "isort"]
 storage-postgres = ["psycopg[binary]", "pgvector"]
 storage-mysql = ["pymysql"]
 
