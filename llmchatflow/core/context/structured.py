@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import List, Dict, Optional
 from .base import ContextBuilder
@@ -8,6 +9,8 @@ from ..memory.ranking import compute_final_scores, compute_final_scores_by_type
 from ..prompt.token_budget import trim_records_to_token_budget
 from ..prompt.assembler import StructuredPromptAssembler
 from ...config import config as app_config
+
+logger = logging.getLogger(__name__)
 
 
 class StructuredContextBuilder(ContextBuilder):
@@ -43,7 +46,29 @@ class StructuredContextBuilder(ContextBuilder):
         current_embedding: Optional[List[float]] = None,
     ) -> List[Dict[str, str]]:
         if current_embedding is None:
-            current_embedding = self.embedder.embed(user_text)
+            try:
+                current_embedding = self.embedder.embed(user_text)
+            except Exception as e:
+                logger.warning("Embedding failed, retrying once (session=%s, err=%s)", session_id, str(e))
+                try:
+                    current_embedding = self.embedder.embed(user_text)
+                except Exception as e2:
+                    logger.warning("Embedding retry also failed, degrading to raw text (session=%s, err=%s)", session_id, str(e2))
+                    records = self.store.fetch_messages_by_session(session_id)
+                    if records:
+                        max_token = int(getattr(app_config, "context_max_token", self.max_memory_token))
+                        cos = semantic_scores(user_text, records)
+                        scored = compute_final_scores(records, cos, lam=self.lam, alpha=self.alpha, beta=self.beta, gamma=self.gamma, delta=self.delta)
+                        ranked = [r for _, r in scored][:self.top_k]
+                        trimmed = trim_records_to_token_budget(ranked, max_token, self.llm_model_name)
+                        trimmed.sort(key=lambda r: r.get("timestamp", 0))
+                        memory_texts = [r["text"] for r in trimmed if r.get("text")]
+                        blocks = {}
+                        if memory_texts:
+                            blocks["retrieved_memories"] = "\n".join(memory_texts)
+                        blocks["history_summary"] = ""
+                        return self.assembler.assemble(blocks, user_text)
+                    return self.assembler.assemble({"history_summary": ""}, user_text)
         faiss_topk = int(getattr(app_config, "faiss_topk", self.top_k))
         filter_strategy = str(getattr(app_config, "faiss_filter_strategy", "global"))
         keep_count = int(getattr(app_config, "ranking_keep_count", self.top_k))
@@ -52,15 +77,21 @@ class StructuredContextBuilder(ContextBuilder):
 
         records: List[Dict] = []
         if hasattr(self.store, "search_records"):
-            try:
-                records = self.store.search_records(
-                    session_id=session_id,
-                    query_embedding=current_embedding,
-                    top_k=faiss_topk,
-                    filter_strategy=filter_strategy,
-                )
-            except Exception:
-                records = []
+            for attempt in range(2):
+                try:
+                    records = self.store.search_records(
+                        session_id=session_id,
+                        query_embedding=current_embedding,
+                        top_k=faiss_topk,
+                        filter_strategy=filter_strategy,
+                    )
+                    break
+                except Exception as e:
+                    if attempt == 0:
+                        logger.warning("FAISS search failed, retrying (session=%s, err=%s)", session_id, str(e))
+                    else:
+                        logger.warning("FAISS search retry also failed (session=%s, err=%s)", session_id, str(e))
+                        records = []
 
         if records:
             sims = [float(r.get("similarity", 0.0) or 0.0) for r in records]
