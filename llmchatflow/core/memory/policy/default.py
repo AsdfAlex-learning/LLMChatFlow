@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from .base import MemoryPolicy
 from ..ranking import compute_final_scores_by_type
@@ -107,14 +107,52 @@ class DefaultMemoryPolicy(MemoryPolicy):
             normalize=normalize,
         )
 
-        # scored is List[Tuple[float, Dict]], sort by score descending
-        ranked = [r for _, r in sorted(scored, key=lambda x: x[0], reverse=True)]
+        # Bucket-based selection: group by memory_type, allocate per-type quotas
+        bucket_episodic = max(1, int(keep_count * 0.6))   # 60% episodic
+        bucket_habit = max(0, int(keep_count * 0.3))       # 30% habit
+        bucket_summary = max(0, keep_count - bucket_episodic - bucket_habit)
 
-        # Apply keep_count
-        result = ranked[:keep_count]
+        # Group scored results by type
+        buckets: Dict[str, List[Tuple[float, Dict]]] = {
+            "episodic": [],
+            "habit": [],
+            "summary": [],
+        }
+        for entry in scored:
+            s, rec = entry
+            mtype = str(rec.get("memory_type", "episodic"))
+            if mtype in buckets:
+                buckets[mtype].append((s, rec))
+            else:
+                buckets["episodic"].append((s, rec))
+
+        # Pick top-N from each bucket
+        picked: List[Tuple[float, Dict]] = []
+        bucket_limits = {
+            "episodic": bucket_episodic,
+            "habit": bucket_habit,
+            "summary": bucket_summary,
+        }
+        for btype, limit in bucket_limits.items():
+            bucket = sorted(buckets.get(btype, []), key=lambda x: x[0], reverse=True)
+            picked.extend(bucket[:limit])
+
+        # If under keep_count due to insufficient data, fill from remaining
+        if len(picked) < keep_count:
+            remaining: List[Tuple[float, Dict]] = []
+            for btype in buckets:
+                limit = bucket_limits[btype]
+                remaining.extend(buckets[btype][limit:])
+            remaining.sort(key=lambda x: x[0], reverse=True)
+            filler_needed = keep_count - len(picked)
+            picked.extend(remaining[:filler_needed])
+
+        # Sort final result by score descending
+        ranked = [r for _, r in sorted(picked, key=lambda x: x[0], reverse=True)]
+        result = ranked
 
         logger.debug(
-            "DefaultMemoryPolicy selected %d/%d memories (keep_count=%d)",
-            len(result), len(memories), keep_count,
+            "DefaultMemoryPolicy selected %d/%d memories (keep_count=%d, buckets: ep=%d, hab=%d, sum=%d)",
+            len(result), len(memories), keep_count, bucket_episodic, bucket_habit, bucket_summary,
         )
         return result
