@@ -6,7 +6,7 @@ from ...utils.embedding import SentenceEmbedding
 from ..memory.semantic import semantic_scores
 from ..memory.ranking import compute_final_scores, compute_final_scores_by_type
 from ..prompt.token_budget import trim_records_to_token_budget
-from ..prompt.assembler import SimplePromptAssembler
+from ..prompt.assembler import StructuredPromptAssembler
 from ...config import config as app_config
 
 
@@ -34,7 +34,7 @@ class StructuredContextBuilder(ContextBuilder):
         self.delta = delta
         self.llm_model_name = llm_model_name
         self.top_k = top_k
-        self.assembler = SimplePromptAssembler()
+        self.assembler = StructuredPromptAssembler()
 
     def build_messages(
         self,
@@ -109,6 +109,23 @@ class StructuredContextBuilder(ContextBuilder):
         max_token = int(getattr(app_config, "context_max_token", self.max_memory_token))
         trimmed = trim_records_to_token_budget(ranked, max_token, self.llm_model_name)
         trimmed.sort(key=lambda r: r.get("timestamp", 0))
-        history_text = "\n".join([x["text"] for x in trimmed])
-        messages = self.assembler.assemble(history_text, user_text)
+
+        # Build structured context blocks
+        blocks = {}
+
+        # System prompt
+        system_prompt = str(getattr(app_config, "system_prompt", ""))
+        if system_prompt and system_prompt != "built-in":
+            blocks["system_prompt"] = system_prompt
+
+        # Retrieved memories
+        memory_texts = [r["text"] for r in trimmed if r.get("text")]
+        if memory_texts:
+            blocks["retrieved_memories"] = "\n".join(memory_texts)
+
+        # History summary (placeholder — full summarization comes in later commit)
+        # When history_summarize is implemented, this block will contain compressed older turns
+        blocks["history_summary"] = ""
+
+        messages = self.assembler.assemble(blocks, user_text)
         return messages
