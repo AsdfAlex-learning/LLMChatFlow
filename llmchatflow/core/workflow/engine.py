@@ -18,8 +18,10 @@ class SemanticMemoryEngine:
         context_builder: ContextBuilder,
         store: MemoryStore,
         embedder: SentenceEmbedding,
+        mode: str = "full",
     ):
         self.session = session
+        self.mode = mode
         self.pipeline = Pipeline(
             [
                 EmbeddingHandler(embedder),
@@ -32,8 +34,18 @@ class SemanticMemoryEngine:
     def process(self, user_input: str, **kwargs) -> str:
         t0 = time.time()
         session_id = self.session.session_id
-        logger.info("Workflow start (session_id=%s)", session_id)
-        ctx = PipelineContext(session_id=session_id, user_input=user_input)
-        ctx = self.pipeline.run(ctx)
+        logger.info("Workflow start (session_id=%s, mode=%s)", session_id, self.mode)
+        ctx = PipelineContext(session_id=session_id, user_input=user_input, user_id=kwargs.get("user_id", ""))
+        stop_before = LLMHandler if self.mode == "headless" else None
+        ctx = self.pipeline.run(ctx, stop_before=stop_before)
         logger.info("Workflow done (session_id=%s, latency_ms=%d)", session_id, int((time.time() - t0) * 1000))
         return ctx.reply or ""
+
+    def retrieve(self, user_input: str, **kwargs) -> PipelineContext:
+        """Headless retrieval: embedding + retrieval only, no LLM or storage."""
+        session_id = self.session.session_id
+        logger.info("Headless retrieval start (session_id=%s)", session_id)
+        ctx = PipelineContext(session_id=session_id, user_input=user_input, user_id=kwargs.get("user_id", ""))
+        ctx = self.pipeline.run(ctx, stop_before=LLMHandler)
+        logger.info("Headless retrieval done (session_id=%s)", session_id)
+        return ctx

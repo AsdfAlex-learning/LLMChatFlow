@@ -44,6 +44,7 @@ class RetrievalHandler:
         ctx.messages = self.context_builder.build_messages(
             ctx.session_id, ctx.user_input, current_embedding=ctx.embedding
         )
+        ctx.retrieved_memories = ctx.messages
         logger.info("Retrieval done")
 
 
@@ -101,7 +102,10 @@ class Pipeline:
     def __init__(self, handlers: List[Handler]):
         self.handlers = handlers
 
-    def run(self, ctx: PipelineContext) -> PipelineContext:
+    def run(self, ctx: PipelineContext, stop_before: type = None) -> PipelineContext:
         for h in self.handlers:
+            if stop_before and isinstance(h, stop_before):
+                logger.info("Pipeline stopped before %s (headless mode)", stop_before.__name__)
+                break
             h.run(ctx)
         return ctx
