@@ -9,16 +9,19 @@ and one request processing flow per plan Section 3.1.
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-from llmchatflow.config import load_config
-from llmchatflow.core.context.structured import StructuredContextBuilder
-from llmchatflow.core.llm.openai_compatible import OpenAICompatibleClient
-from llmchatflow.core.session.local import LocalSession
-from llmchatflow.core.workflow.engine import SemanticMemoryEngine
-from llmchatflow.utils.embedding import SentenceEmbedding
-from llmchatflow.utils.sqlite_faiss_memory_store import SQLiteFaissMemoryStore
-from llmchatflow.utils.logging_utils import configure_logging_from_config
+try:
+    from llmchatflow.config import load_config
+    from llmchatflow.core.context.structured import StructuredContextBuilder
+    from llmchatflow.core.llm.openai_compatible import OpenAICompatibleClient
+    from llmchatflow.core.session.local import LocalSession
+    from llmchatflow.core.workflow.engine import SemanticMemoryEngine
+    from llmchatflow.utils.embedding import SentenceEmbedding
+    from llmchatflow.utils.sqlite_faiss_memory_store import SQLiteFaissMemoryStore
+    from llmchatflow.utils.logging_utils import configure_logging_from_config
+except ImportError as e:
+    print(f"Error: LLMChatFlow is not installed ({e}).", file=sys.stderr)
+    print("Install with:  pip install -e .", file=sys.stderr)
+    sys.exit(1)
 
 
 def main() -> None:

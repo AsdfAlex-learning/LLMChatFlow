@@ -1,18 +1,21 @@
 import os
 import sys
-from dotenv import load_dotenv
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from llmchatflow.config import load_config
-from llmchatflow.core.llm.openai_compatible import OpenAICompatibleClient
-from llmchatflow.core.session.local import LocalSession
-from llmchatflow.core.context.structured import StructuredContextBuilder
-from llmchatflow.core.workflow.engine import SemanticMemoryEngine
-from llmchatflow.adapters.cli.adapter import CLIAdapter
-from llmchatflow.utils.sqlite_faiss_memory_store import SQLiteFaissMemoryStore
-from llmchatflow.utils.embedding import SentenceEmbedding
-from llmchatflow.utils.logging_utils import configure_logging_from_config
+try:
+    from dotenv import load_dotenv
+    from llmchatflow.config import load_config
+    from llmchatflow.core.llm.openai_compatible import OpenAICompatibleClient
+    from llmchatflow.core.session.local import LocalSession
+    from llmchatflow.core.context.structured import StructuredContextBuilder
+    from llmchatflow.core.workflow.engine import SemanticMemoryEngine
+    from llmchatflow.adapters.cli.adapter import CLIAdapter
+    from llmchatflow.utils.sqlite_faiss_memory_store import SQLiteFaissMemoryStore
+    from llmchatflow.utils.embedding import SentenceEmbedding
+    from llmchatflow.utils.logging_utils import configure_logging_from_config
+except ImportError as e:
+    print(f"Error: LLMChatFlow is not installed ({e}).", file=sys.stderr)
+    print("Install with:  pip install -e .", file=sys.stderr)
+    sys.exit(1)
 
 
 def main():
