@@ -56,6 +56,20 @@ tests/                              # pytest, 50+ 测试
 | 配置系统 | `config/config.py` | `AppConfig` dataclass + `load_config()` |
 | 测试参考 | `tests/` | pytest + MagicMock fixtures |
 
+## CODE MAP
+
+| Symbol | Type | Location | 职责 |
+|--------|------|----------|------|
+| `SemanticMemoryEngine` | class | `workflow/engine.py` | 对话编排，Full/Headless 双模式 |
+| `MemoryManager` | class | `memory/manager.py` | 记忆统一入口: retrieve/store/build_view |
+| `DefaultMemoryPolicy` | class | `memory/policy/default.py` | 桶选择 + 类型感知评分 |
+| `MemoryRetriever` | class | `memory/retriever.py` | FAISS→SQLite→Policy 编排 |
+| `MemoryViewBuilder` | class | `memory/view_builder.py` | 结果 → text/prompt/structured |
+| `StructuredContextBuilder` | class | `context/structured.py` | 多源上下文(4 blocks) |
+| `SQLiteFaissMemoryStore` | class | `utils/sqlite_faiss_memory_store.py` | SQLite+FAISS 线程安全 |
+| `LLMJudge` | class | `memory/judge.py` | LLM 判定记忆类型+重要性 |
+| `QueryRewriter` | class | `workflow/query_rewrite.py` | 查询重写(none/always/timed/count) |
+
 ## CONVENTIONS
 - **ABC 定义接口**: 每个子系统提供 `base.py` 抽象基类（MemoryStore, LLMClient, ContextBuilder, PromptTemplate, ISession）
 - **Config 驱动**: 所有参数化行为通过 `AppConfig` 单例读取，不硬编码
