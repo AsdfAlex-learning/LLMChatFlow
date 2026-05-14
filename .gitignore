@@ -47,3 +47,15 @@ claude-*.env
 anthropic*.json
 anthropic*.env
 CLAUDE.md
+
+# SQLite runtime files
+*.db
+*.db-shm
+*.db-wal
+
+# FAISS index files
+*.faiss
+*.faiss.tmp
+
+# Sisyphus session state
+.sisyphus/
