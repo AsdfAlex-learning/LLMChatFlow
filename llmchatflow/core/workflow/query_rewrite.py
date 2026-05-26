@@ -34,6 +34,8 @@ class QueryRewriter:
         self.llm_client = llm_client
         self.trigger = trigger
         self.persist = persist
+        self.interval_seconds = interval_seconds
+        self.interval_turns = interval_turns
         self._last_rewrite_time: float = 0.0
         self._rewrite_count: int = 0
 
