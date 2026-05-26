@@ -14,6 +14,12 @@ logger = logging.getLogger(__name__)
 
 
 class StructuredContextBuilder(ContextBuilder):
+    """Multi-source context builder that assembles LLM-ready message lists.
+
+    Pipeline: FAISS search -> ranking/scoring -> token trimming -> block assembly.
+    Falls back to session-based retrieval when FAISS is unavailable.
+    """
+
     def __init__(
         self,
         store: MemoryStore,
@@ -57,7 +63,10 @@ class StructuredContextBuilder(ContextBuilder):
                     records = self.store.fetch_messages_by_session(session_id)
                     if records:
                         max_token = int(getattr(app_config, "context_max_token", self.max_memory_token))
-                        cos = semantic_scores(user_text, records)
+                        # Embedding unavailable — use zero vector so ranking relies on importance + temporal only
+                        fallback_dim = int(getattr(app_config, "embedding_dimension", 384))
+                        zero_emb = [0.0] * fallback_dim
+                        cos = semantic_scores(zero_emb, records)
                         scored = compute_final_scores(records, cos, lam=self.lam, alpha=self.alpha, beta=self.beta, gamma=self.gamma, delta=self.delta)
                         ranked = [r for _, r in scored][:self.top_k]
                         trimmed = trim_records_to_token_budget(ranked, max_token, self.llm_model_name)
