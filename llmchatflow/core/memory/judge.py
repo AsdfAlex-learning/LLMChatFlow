@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 TYPE_JUDGE_PROMPT = (
     "分析以下用户输入，判断其记忆类型。只返回JSON，不要其他内容。\n"
-    '格式: {"memory_type": "...", "importance": 0.0-1.0, "reason": "..."}\n'
+    '格式: {{"memory_type": "...", "importance": 0.0-1.0, "reason": "..."}}\n'
     "记忆类型: episodic(对话片段), habit(用户偏好/习惯), summary(需要压缩总结)\n"
     "importance: 0.0(无关紧要) 到 1.0(极其重要)\n\n"
     "用户输入: {text}\n"
