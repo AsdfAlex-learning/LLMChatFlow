@@ -2,7 +2,12 @@ from typing import Dict, Any, Optional
 from .base import ISession
 
 class LocalSession(ISession):
-    """Local in-memory session implementation."""
+    """Local in-memory session implementation.
+
+    Data is kept in memory only and not persisted to disk.
+    load()/save() are no-ops; use a persistent session implementation
+    for durability across process restarts.
+    """
 
     def __init__(self, session_id: str):
         self._session_id = session_id
@@ -13,12 +18,10 @@ class LocalSession(ISession):
         return self._session_id
 
     def load(self) -> None:
-        # In a real local implementation, this might load from a JSON file
-        pass
+        """No-op for in-memory session. Data is not persisted."""
 
     def save(self) -> None:
-        # In a real local implementation, this might save to a JSON file
-        pass
+        """No-op for in-memory session. Data is not persisted."""
 
     def get_context(self) -> Dict[str, Any]:
         return self._context
