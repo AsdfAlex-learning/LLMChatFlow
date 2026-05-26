@@ -1,2 +1,4 @@
 from .engine import SemanticMemoryEngine
-__all__ = ["SemanticMemoryEngine"]
+from .query_rewrite import QueryRewriter
+
+__all__ = ["SemanticMemoryEngine", "QueryRewriter"]
