@@ -83,7 +83,7 @@ class DefaultMemoryPolicy(MemoryPolicy):
                 "summary": getattr(config, "ranking_type_weights_summary", {}),
             }
             default_weights = getattr(config, "ranking_type_weights_default", default_weights)
-            lam = float(getattr(config, "context_min_token", 0) and 0.1 or 0.1)  # lam from config
+            lam = float(getattr(config, "ranking_lam", 0.1))
             keep_count = int(getattr(config, "ranking_keep_count", keep_count))
             normalize = bool(getattr(config, "ranking_score_normalize", normalize))
 
