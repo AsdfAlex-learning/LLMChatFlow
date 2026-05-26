@@ -13,6 +13,15 @@ logger = logging.getLogger(__name__)
 
 
 class SemanticMemoryEngine:
+    """Top-level orchestrator for the memory-augmented conversation workflow.
+
+    Supports two modes:
+    - "full": Embed -> Retrieve -> LLM generate -> Store (complete chat cycle)
+    - "headless": Embed -> Retrieve only (no LLM, returns structured data)
+
+    Delegates to Pipeline for step execution and MemoryManager for headless retrieval.
+    """
+
     def __init__(
         self,
         session: ISession,

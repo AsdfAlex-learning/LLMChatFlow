@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PipelineContext:
+    """Shared state passed through the pipeline handler chain.
+
+    Each handler reads and/or mutates this context as the pipeline progresses.
+    """
+
     session_id: str
     user_input: str
     user_id: str = ""
@@ -24,10 +29,14 @@ class PipelineContext:
 
 
 class Handler(Protocol):
+    """Protocol for pipeline handler steps. Each handler mutates PipelineContext in-place."""
+
     def run(self, ctx: PipelineContext) -> None: ...
 
 
 class EmbeddingHandler:
+    """Pipeline step: embed user input into a vector."""
+
     def __init__(self, embedder: SentenceEmbedding):
         self.embedder = embedder
 
@@ -37,6 +46,8 @@ class EmbeddingHandler:
 
 
 class RetrievalHandler:
+    """Pipeline step: retrieve memories and build structured context messages."""
+
     def __init__(self, context_builder: ContextBuilder):
         self.context_builder = context_builder
 
@@ -49,6 +60,8 @@ class RetrievalHandler:
 
 
 class LLMHandler:
+    """Pipeline step: call LLM with context messages and store reply."""
+
     def __init__(self, llm_client: LLMClient):
         self.llm_client = llm_client
 
@@ -58,6 +71,8 @@ class LLMHandler:
 
 
 class StorageHandler:
+    """Pipeline step: persist user input and assistant reply to memory store."""
+
     def __init__(self, store: MemoryStore, embedder: SentenceEmbedding):
         self.store = store
         self.embedder = embedder
@@ -99,6 +114,11 @@ class StorageHandler:
 
 
 class Pipeline:
+    """Sequential pipeline that runs a chain of Handler steps on a shared PipelineContext.
+
+    Supports early stopping (headless mode) via stop_before parameter.
+    """
+
     def __init__(self, handlers: List[Handler]):
         self.handlers = handlers
 

@@ -3,6 +3,11 @@ from typing import Dict, List
 
 
 class PromptTemplate(ABC):
+    """Abstract base class for prompt assemblers.
+
+    Converts structured context blocks into a list of chat messages.
+    """
+
     @abstractmethod
     def assemble(self, blocks: Dict[str, str], user_text: str) -> List[Dict[str, str]]:
         """Assemble prompt messages from structured context blocks and user text.

@@ -6,6 +6,12 @@ logger = logging.getLogger(__name__)
 
 
 class StructuredPromptAssembler(PromptTemplate):
+    """Assembles structured prompt messages from context blocks.
+
+    Layout: [system] [history_summary] [retrieved_memories] [user].
+    Empty blocks are omitted. Default system prompt is in Chinese.
+    """
+
     def __init__(self, system_prompt: str = "你是一个有同理心且高效的助手。"):
         self.system_prompt = system_prompt
 

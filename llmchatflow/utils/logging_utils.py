@@ -11,6 +11,8 @@ from typing import Any, Mapping, Optional
 
 
 class JsonLineFormatter(logging.Formatter):
+    """JSON-line log formatter: each log record becomes a single JSON object."""
+
     def formatTime(self, record: logging.LogRecord, datefmt: Optional[str] = None) -> str:
         ts = time.gmtime(record.created)
         return time.strftime("%Y-%m-%dT%H:%M:%S", ts) + f".{int(record.msecs):03d}Z"
@@ -34,6 +36,8 @@ class JsonLineFormatter(logging.Formatter):
 
 
 class ProcessSafeRotatingFileHandler(RotatingFileHandler):
+    """Process-safe rotating file handler with cross-process locking on Windows."""
+
     _thread_lock = threading.Lock()
 
     def _acquire_process_lock(self) -> Any:
