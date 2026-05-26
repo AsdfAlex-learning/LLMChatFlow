@@ -1,7 +1,8 @@
-from .base import MemoryRetriever
+from .retriever import MemoryRetriever
 from .policy import MemoryPolicy, DefaultMemoryPolicy
+from .storage import MemoryStore
 
-__all__ = ["MemoryRetriever", "MemoryPolicy", "DefaultMemoryPolicy", "MemoryManager"]
+__all__ = ["MemoryRetriever", "MemoryPolicy", "DefaultMemoryPolicy", "MemoryStore", "MemoryManager"]
 
 
 def __getattr__(name: str):
