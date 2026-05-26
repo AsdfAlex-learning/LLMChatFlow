@@ -3,6 +3,13 @@ from typing import Any, Dict, List, Optional, Sequence
 
 
 class MemoryStore(ABC):
+    """Abstract base class for memory storage backends.
+
+    Defines the interface for inserting, fetching, and searching memory records.
+    Concrete implementations (e.g. SQLiteFaissMemoryStore) provide persistence
+    and vector search capabilities.
+    """
+
     @abstractmethod
     def insert_memory(
         self,
@@ -54,5 +61,6 @@ class MemoryStore(ABC):
         query_embedding: Sequence[float],
         top_k: int,
         filter_strategy: str = "global",
+        oversample: int = 5,
     ) -> List[Dict[str, Any]]:
         pass
