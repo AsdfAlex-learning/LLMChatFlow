@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 import threading
 
 from llmchatflow.core.memory.storage import MemoryStore
+from llmchatflow.config import load_config
 from .faiss_helper import FaissIndex
 import logging
 
@@ -18,6 +19,16 @@ logger = logging.getLogger(__name__)
 
 
 class SQLiteFaissMemoryStore(MemoryStore):
+    """Thread-safe memory store backed by SQLite (metadata) + FAISS (vector search).
+
+    Features:
+    - WAL-mode SQLite for concurrent reads
+    - Async FAISS index updates via background worker thread
+    - Automatic FAISS rebuild on startup for dirty vectors
+    - Batched SQLite commits for write throughput
+    - Pending-write fallback to JSONL on persistent failures
+    """
+
     def __init__(
         self,
         db_path: str = "memory.db",
@@ -34,7 +45,7 @@ class SQLiteFaissMemoryStore(MemoryStore):
         self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL;")
         self._conn.execute("PRAGMA synchronous=NORMAL;")
-        self._batch_size = 5  # TODO: expose to config
+        self._batch_size = int(getattr(load_config(), "storage_batch_size", 5))
         self._pending_ops = 0
         self._faiss_queue: "queue.Queue[Tuple[str, int, List[float]]]" = queue.Queue()
         self._faiss_stop = threading.Event()
