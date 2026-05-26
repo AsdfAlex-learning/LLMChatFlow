@@ -29,10 +29,10 @@ class MemoryManager:
         policy: Optional[MemoryPolicy] = None,
         model: str = "gpt-3.5-turbo",
     ):
-        self.store = store
+        self._store = store
         self.embedder = embedder
         self.policy = policy or DefaultMemoryPolicy()
-        self.retriever = MemoryRetriever(store, embedder, self.policy)
+        self.retriever = MemoryRetriever(self._store, embedder, self.policy)
         self.view_builder = MemoryViewBuilder(model=model)
 
     def retrieve(
@@ -103,7 +103,7 @@ class MemoryManager:
         importance = float(getattr(config, "importance_default", 0.5)) if config else 0.5
 
         user_emb = self.embedder.embed(user_input)
-        self.store.insert_message(
+        self._store.insert_message(
             session_id=session_id,
             role="user",
             text=user_input,
@@ -119,7 +119,7 @@ class MemoryManager:
 
         if response:
             ai_emb = self.embedder.embed(response)
-            self.store.insert_message(
+            self._store.insert_message(
                 session_id=session_id,
                 role="assistant",
                 text=response,
