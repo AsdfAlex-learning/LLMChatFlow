@@ -32,6 +32,8 @@ class AppConfig:
         default_factory=lambda: {"alpha": 0.5, "beta": 0.2, "theta": 0.3}
     )
     ranking_keep_count: int = 10
+    ranking_lam: float = 0.1
+    ranking_lam: float = 0.1
     context_max_token: int = 2000
     context_min_token: int = 500
     history_summarize: bool = True
@@ -53,6 +55,8 @@ class AppConfig:
     api_key: str = ""
     base_url: str = ""
     storage_path: str = "memory.db"
+    storage_batch_size: int = 5
+    storage_batch_size: int = 5
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
