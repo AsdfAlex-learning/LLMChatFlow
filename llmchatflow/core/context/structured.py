@@ -51,6 +51,20 @@ class StructuredContextBuilder(ContextBuilder):
         user_text: str,
         current_embedding: Optional[List[float]] = None,
     ) -> List[Dict[str, str]]:
+        """Build a structured message list for the LLM conversation.
+
+        Pipeline: embed query → FAISS search → multi-factor scoring → token
+        trimming → structured block assembly. Falls back to session fetch + cosine
+        similarity when FAISS is unavailable or embedding fails.
+
+        Args:
+            session_id: Current conversation session identifier.
+            user_text: The raw user input text.
+            current_embedding: Pre-computed embedding (if None, embeds user_text).
+
+        Returns:
+            List of {'role': str, 'content': str} message dicts ready for LLM.
+        """
         if current_embedding is None:
             try:
                 current_embedding = self.embedder.embed(user_text)

@@ -42,6 +42,16 @@ class OpenAICompatibleClient(LLMClient):
         max_tokens: Optional[int] = None,
         **kwargs,
     ) -> str:
+        """Send a synchronous chat completion request to the OpenAI-compatible API.
+
+        Args:
+            messages: List of {'role': str, 'content': str} message dicts.
+            temperature: Sampling temperature (falls back to default).
+            max_tokens: Max tokens to generate (falls back to default).
+
+        Returns:
+            The assistant's reply text.
+        """
         payload = {
             "model": self.model,
             "messages": messages,
@@ -67,6 +77,10 @@ class OpenAICompatibleClient(LLMClient):
         max_tokens: Optional[int] = None,
         **kwargs,
     ) -> str:
+        """Async wrapper that delegates to chat_completion via thread executor.
+
+        See chat_completion for parameter docs.
+        """
         # Simple async wrapper using thread executor
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(

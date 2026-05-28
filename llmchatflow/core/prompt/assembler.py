@@ -16,6 +16,11 @@ class StructuredPromptAssembler(PromptTemplate):
         self.system_prompt = system_prompt
 
     def assemble(self, blocks: Dict[str, str], user_text: str) -> List[Dict[str, str]]:
+        """Assemble a structured message list from context blocks.
+
+        Block order: system_prompt → history_summary → retrieved_memories → user.
+        Empty or whitespace-only blocks are omitted.
+        """
         messages: List[Dict[str, str]] = []
 
         # Block 1: System prompt

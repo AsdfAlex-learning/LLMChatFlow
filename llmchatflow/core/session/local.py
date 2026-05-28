@@ -24,7 +24,9 @@ class LocalSession(ISession):
         """No-op for in-memory session. Data is not persisted."""
 
     def get_context(self) -> Dict[str, Any]:
+        """Return the session's mutable context dict."""
         return self._context
 
     def update_context(self, key: str, value: Any) -> None:
+        """Set or update a single key in the session context."""
         self._context[key] = value

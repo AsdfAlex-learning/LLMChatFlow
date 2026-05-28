@@ -10,6 +10,7 @@ import sys
 
 
 def main():
+    """CLI entry point: runs cli_demo.py by default, or starts API server with 'api' arg."""
     if len(sys.argv) > 1 and sys.argv[1] == "api":
         import uvicorn
 

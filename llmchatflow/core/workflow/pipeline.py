@@ -41,6 +41,7 @@ class EmbeddingHandler:
         self.embedder = embedder
 
     def run(self, ctx: PipelineContext) -> None:
+        """Embed the user input and store the vector in ctx.embedding."""
         ctx.embedding = self.embedder.embed(ctx.user_input)
         logger.info("Embedding done")
 
@@ -52,6 +53,7 @@ class RetrievalHandler:
         self.context_builder = context_builder
 
     def run(self, ctx: PipelineContext) -> None:
+        """Retrieve memories and build LLM-ready message list via ContextBuilder."""
         ctx.messages = self.context_builder.build_messages(
             ctx.session_id, ctx.user_input, current_embedding=ctx.embedding
         )
@@ -66,6 +68,7 @@ class LLMHandler:
         self.llm_client = llm_client
 
     def run(self, ctx: PipelineContext) -> None:
+        """Call the LLM with context messages and store the reply."""
         ctx.reply = self.llm_client.chat_completion(ctx.messages or [])
         logger.info("LLM done")
 
@@ -78,6 +81,7 @@ class StorageHandler:
         self.embedder = embedder
 
     def run(self, ctx: PipelineContext) -> None:
+        """Persist user input and assistant reply as paired memory records."""
         import uuid
 
         ts = __import__("time").time()
@@ -123,6 +127,7 @@ class Pipeline:
         self.handlers = handlers
 
     def run(self, ctx: PipelineContext, stop_before: type = None) -> PipelineContext:
+        """Execute all handlers sequentially. Stops early if a handler matches stop_before type."""
         for h in self.handlers:
             if stop_before and isinstance(h, stop_before):
                 logger.info("Pipeline stopped before %s (headless mode)", stop_before.__name__)

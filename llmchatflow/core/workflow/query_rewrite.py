@@ -40,6 +40,11 @@ class QueryRewriter:
         self._rewrite_count: int = 0
 
     def should_rewrite(self) -> bool:
+        """Check whether a rewrite should be triggered per the configured strategy.
+
+        Modes: 'always' → every query; 'timed' → after interval_seconds;
+        'count' → every N turns; 'none' → never.
+        """
         if self.trigger == "always":
             return True
         if self.trigger == "timed":
@@ -50,6 +55,10 @@ class QueryRewriter:
         return False
 
     def rewrite(self, text: str) -> str:
+        """Rewrite the query for clarity if should_rewrite() returns True.
+
+        Falls back to the original text if LLM is unavailable or rewrite fails.
+        """
         if not self.should_rewrite() or self.llm_client is None:
             return text
         try:
