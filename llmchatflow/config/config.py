@@ -33,7 +33,6 @@ class AppConfig:
     )
     ranking_keep_count: int = 10
     ranking_lam: float = 0.1
-    ranking_lam: float = 0.1
     context_max_token: int = 2000
     context_min_token: int = 500
     history_summarize: bool = True
@@ -55,7 +54,6 @@ class AppConfig:
     api_key: str = ""
     base_url: str = ""
     storage_path: str = "memory.db"
-    storage_batch_size: int = 5
     storage_batch_size: int = 5
 
     def to_dict(self) -> Dict[str, Any]:
@@ -150,6 +148,11 @@ def _build_config_dict(raw: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def load_config(config_path: Optional[str] = None) -> AppConfig:
+    """Load AppConfig from a YAML or JSON config file.
+
+    Falls back to `config.yaml` next to this file if no path given.
+    Returns an AppConfig instance populated with all defaults for missing keys.
+    """
     path = Path(config_path) if config_path else Path(__file__).with_name("config.yaml")
     raw = _load_yaml_file(path)
     built = _build_config_dict(raw)
