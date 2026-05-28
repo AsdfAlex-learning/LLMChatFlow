@@ -23,9 +23,12 @@ class SentenceEmbedding:
         self.model_name = chosen_model
         self.model = SentenceTransformer(chosen_model, device=chosen_device)
 
-        # Update dim from model if possible
-        if hasattr(self.model, "get_sentence_embedding_dimension"):
-            d = self.model.get_sentence_embedding_dimension()
+        # Update dim from model if possible (new API: get_embedding_dimension)
+        dim_method = getattr(self.model, "get_embedding_dimension", None) or getattr(
+            self.model, "get_sentence_embedding_dimension", None
+        )
+        if dim_method:
+            d = dim_method()
             if d:
                 self.dim = int(d)
         else:
