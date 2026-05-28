@@ -9,11 +9,32 @@ IMPORTANCE_AI_MSG = 0.7
 
 
 def temporal_score(ts: int, now_ts: int, lam: float) -> float:
+    """Compute exponential time decay score for a memory record.
+
+    Args:
+        ts: Memory creation timestamp (Unix seconds).
+        now_ts: Current timestamp for relative comparison.
+        lam: Decay rate coefficient — higher values decay faster.
+
+    Returns:
+        Decay score in [0.0, 1.0], where 1.0 = brand new.
+    """
     delta_days = max(0.0, (now_ts - ts) / 86400.0)
     return math.exp(-lam * delta_days)
 
 
 def recency_scores(sorted_by_time_records: List[Dict]) -> List[float]:
+    """Assign position-based recency scores, highest for most recent.
+
+    Top-5 records get descending scores (1.0, 0.8, 0.6, 0.4, 0.2);
+    beyond rank 5, score floors at 0.1.
+
+    Args:
+        sorted_by_time_records: Records sorted oldest-first.
+
+    Returns:
+        List of recency scores aligned with input order.
+    """
     n = len(sorted_by_time_records)
     scores = [0.1] * n
     for i in range(n):
@@ -42,6 +63,20 @@ def compute_final_scores(
     gamma: float = 0.15,
     delta: float = 0.15,
 ) -> List[Tuple[float, Dict]]:
+    """Compute weighted composite scores: alpha*similarity + beta*importance + gamma*temporal + delta*recency.
+
+    Args:
+        records: Memory records with 'importance', 'timestamp' keys.
+        cos_sims: Cosine similarity scores (aligned with records).
+        lam: Time decay coefficient.
+        alpha: Weight for semantic similarity.
+        beta: Weight for importance.
+        gamma: Weight for temporal decay.
+        delta: Weight for recency position.
+
+    Returns:
+        List of (score, record) tuples sorted descending by score.
+    """
     now_ts = int(time.time())
     rec_scores = recency_scores(records)
     out = []
@@ -65,6 +100,23 @@ def compute_final_scores_by_type(
     default_weights: Dict[str, float],
     normalize: bool = True,
 ) -> List[Tuple[float, Dict]]:
+    """Compute type-aware composite scores using per-memory-type weight sets.
+
+    Each memory type (episodic, habit, summary) can have its own alpha/beta/theta
+    weights, allowing different scoring strategies per type.
+
+    Args:
+        records: Memory records with 'memory_type', 'importance', 'timestamp' keys.
+        similarities: Similarity scores aligned with records.
+        lam: Time decay coefficient.
+        type_weights: Dict mapping memory_type → {'alpha': w, 'beta': w, 'theta': w}.
+        default_weights: Fallback weights when type not in type_weights.
+        normalize: If True, divide all scores by max score.
+
+    Returns:
+        List of (score, record) tuples sorted descending. Records gain '_score'
+        and '_time_decay' keys.
+    """
     now_ts = int(time.time())
     scored: List[Tuple[float, Dict]] = []
     for i, r in enumerate(records):
