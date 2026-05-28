@@ -37,6 +37,12 @@ class FaissSearchResult:
 
 
 class FaissIndex:
+    """Thread-safe FAISS IndexIDMap2 wrapper with persistent disk storage.
+
+    Supports add, search, reset, and atomic file-based save with .tmp swap.
+    Vectors are L2-normalized before indexing by default.
+    """
+
     def __init__(self, index_path: str, dim: int):
         self.index_path = str(index_path)
         self.dim = int(dim)
@@ -60,6 +66,7 @@ class FaissIndex:
         os.replace(str(tmp), str(path))
 
     def add(self, ids: Iterable[int], vectors: Iterable[Iterable[float]], normalize: bool = True) -> None:
+        """Add vectors to the FAISS index with explicit integer IDs. Saves to disk after insert."""
         id_arr = np.asarray(list(ids), dtype=np.int64)
         if id_arr.ndim != 1:
             raise ValueError("ids must be a 1D array-like")
@@ -70,6 +77,7 @@ class FaissIndex:
         self.save()
 
     def search(self, vector: Iterable[float], top_k: int, normalize: bool = True) -> FaissSearchResult:
+        """Search the index for nearest neighbors. Returns IDs and inner-product scores."""
         q = np.asarray([list(vector)], dtype=np.float32)
         if q.shape[1] != self.dim:
             raise ValueError(f"query vector must have dim {self.dim}")
@@ -79,9 +87,11 @@ class FaissIndex:
         return FaissSearchResult(ids=ids[0], scores=scores[0])
 
     def reset(self) -> None:
+        """Clear all vectors and reset the index to empty state."""
         base = self._faiss.IndexFlatIP(self.dim)
         self._index = self._faiss.IndexIDMap2(base)
         self.save()
 
     def ntotal(self) -> int:
+        """Return total number of vectors in the index."""
         return int(self._index.ntotal)

@@ -7,6 +7,10 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=128)
 def get_tokenizer(model: Optional[str] = None):
+    """Load a HuggingFace tokenizer, cached with LRU eviction.
+
+    Falls back to gpt2 if no model specified. Returns None on load failure.
+    """
     from transformers import AutoTokenizer
 
     model_name = model or "gpt2"

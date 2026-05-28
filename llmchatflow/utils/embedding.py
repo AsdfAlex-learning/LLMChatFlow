@@ -8,6 +8,12 @@ from llmchatflow.config import load_config
 
 
 class SentenceEmbedding:
+    """Thread-safe sentence embedding wrapper using SentenceTransformers.
+
+    Handles model loading, text normalization, embedding generation,
+    and graceful fallback to zero vectors on failure.
+    """
+
     def __init__(self, model_name: Optional[str] = None, dim: int = 512, device: Optional[str] = None):
         from sentence_transformers import SentenceTransformer
 
@@ -38,6 +44,10 @@ class SentenceEmbedding:
         return t
 
     def embed(self, text: str) -> List[float]:
+        """Encode text into a normalized embedding vector.
+
+        Returns a zero vector on empty input or encoding failure.
+        """
         cleaned = self._clean_text(text)
         if not cleaned:
             return [0.0] * int(getattr(self, "dim", 0) or 0)
@@ -51,6 +61,10 @@ class SentenceEmbedding:
 
 
 def cosine_similarity(a: List[float], b: List[float]) -> float:
+    """Compute cosine similarity between two equal-length vectors.
+
+    Returns 0.0 if either vector is empty or dimensions mismatch.
+    """
     if not a or not b or len(a) != len(b):
         return 0.0
     s = sum(x * y for x, y in zip(a, b))

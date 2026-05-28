@@ -104,6 +104,14 @@ def configure_logging(
     file_path: str = "",
     json_logs: bool = False,
 ) -> None:
+    """Set up the llmchatflow logger with console and/or file output.
+
+    Args:
+        level: Log level name (INFO, DEBUG, WARNING, etc.).
+        console: Enable stdout handler.
+        file_path: Path for rotating file log (disabled if empty).
+        json_logs: Use JSON-line format instead of plain text.
+    """
     logger = logging.getLogger("llmchatflow")
     _remove_managed_handlers(logger)
 
@@ -147,6 +155,11 @@ def configure_logging(
 
 
 def configure_logging_from_config(cfg: Optional[object]) -> None:
+    """Configure logging from an AppConfig object or plain dict.
+
+    Reads logging_level, logging_console, logging_file_path, logging_json.
+    Falls back to defaults if cfg is None or parsing fails.
+    """
     if cfg is None:
         configure_logging()
         return
