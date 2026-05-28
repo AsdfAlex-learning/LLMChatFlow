@@ -25,6 +25,7 @@ def mock_embedder():
     return embedder
 
 
+@pytest.mark.slow
 class TestBuildMessagesBasic:
     def test_returns_messages_list(self, mock_store, mock_embedder):
         builder = StructuredContextBuilder(
@@ -60,6 +61,7 @@ class TestBuildMessagesBasic:
         mock_embedder.embed.assert_not_called()
 
 
+@pytest.mark.slow
 class TestBuildMessagesWithRecords:
     def test_with_search_results(self, mock_store, mock_embedder):
         records = [
@@ -119,6 +121,7 @@ class TestBuildMessagesWithRecords:
         assert len(memory_msgs) >= 1
 
 
+@pytest.mark.slow
 class TestBuildMessagesEdgeCases:
     def test_empty_input(self, mock_store, mock_embedder):
         builder = StructuredContextBuilder(

@@ -20,6 +20,7 @@ def store(tmp_path):
     s._faiss_stop.set()
 
 
+@pytest.mark.slow
 class TestInsertAndFetch:
     def test_insert_message_and_fetch(self, store):
         """insert_message -> fetch_messages_by_session round-trip."""
@@ -52,6 +53,7 @@ class TestInsertAndFetch:
         assert s2_msgs[0]["text"] == "msg2"
 
 
+@pytest.mark.slow
 class TestInsertMemory:
     def test_insert_memory_full(self, store):
         """insert_memory with all params."""
@@ -76,6 +78,7 @@ class TestInsertMemory:
         assert len(msgs) == 1
 
 
+@pytest.mark.slow
 class TestFetchMemoriesByUuids:
     def test_fetch_by_uuids(self, store):
         u1 = store.insert_memory("s1", "user", "m1", [0.1] * 384, 0.5, 1000, memory_type="episodic")
@@ -89,6 +92,7 @@ class TestFetchMemoriesByUuids:
         assert records == []
 
 
+@pytest.mark.slow
 class TestSchemaIntegrity:
     def test_all_tables_exist(self, store):
         cur = store._conn.cursor()
@@ -98,6 +102,7 @@ class TestSchemaIntegrity:
         assert expected <= tables
 
 
+@pytest.mark.slow
 class TestInsertMessageParams:
     def test_user_id_and_turn_id(self, store):
         """insert_message should pass user_id and turn_id through to insert_memory."""
