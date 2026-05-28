@@ -24,11 +24,11 @@ class SemanticMemoryEngine:
 
     def __init__(
         self,
-        session: ISession,
         llm_client: LLMClient,
         context_builder: ContextBuilder,
         store: MemoryStore,
         embedder: SentenceEmbedding,
+        session: Optional[ISession] = None,
         mode: str = "full",
         memory_manager: Optional[MemoryManager] = None,
     ):
@@ -45,6 +45,20 @@ class SemanticMemoryEngine:
         )
 
     def process(self, user_input: str, **kwargs) -> str:
+        """Run a full conversation turn: embed → retrieve → generate → store.
+
+        Args:
+            user_input: The raw user query text.
+            **kwargs: Additional context (e.g., user_id).
+
+        Returns:
+            The LLM-generated reply text, or empty string on failure.
+
+        Raises:
+            RuntimeError: If session is not set (None).
+        """
+        if self.session is None:
+            raise RuntimeError("SemanticMemoryEngine.session is not set. Set engine.session = session before calling process().")
         t0 = time.time()
         session_id = self.session.session_id
         logger.info("Workflow start (session_id=%s, mode=%s)", session_id, self.mode)
@@ -60,7 +74,12 @@ class SemanticMemoryEngine:
         If memory_manager is configured, uses MemoryManager.retrieve()
         which returns structured dict with memories/turns/latency.
         Otherwise falls back to pipeline (returns PipelineContext).
+
+        Raises:
+            RuntimeError: If session is not set (None).
         """
+        if self.session is None:
+            raise RuntimeError("SemanticMemoryEngine.session is not set. Set engine.session = session before calling retrieve().")
         session_id = self.session.session_id
         user_id = kwargs.get("user_id", "")
 
