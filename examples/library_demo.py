@@ -29,17 +29,27 @@ def main() -> None:
     config = load_config()
     configure_logging_from_config(config)
 
+    has_api_key = bool(os.environ.get("OPENAI_API_KEY"))
+
+    if not has_api_key:
+        print("WARNING: OPENAI_API_KEY not set. Running in headless mode (no LLM).\n")
+
     # Initialize core components
     store = SQLiteFaissMemoryStore("demo_memory.db")
     embedder = SentenceEmbedding(
         model_name=config.embedding_model,
         device=config.embedding_device or None,
     )
-    llm_client = OpenAICompatibleClient(
-        api_key=os.environ.get("OPENAI_API_KEY"),
-        base_url=os.environ.get("OPENAI_BASE_URL"),
-        model=os.environ.get("LLM_MODEL", "gpt-3.5-turbo"),
-    )
+
+    if has_api_key:
+        llm_client = OpenAICompatibleClient(
+            api_key=os.environ.get("OPENAI_API_KEY"),
+            base_url=os.environ.get("OPENAI_BASE_URL"),
+            model=os.environ.get("LLM_MODEL", "gpt-3.5-turbo"),
+        )
+    else:
+        llm_client = None
+
     ctx_builder = StructuredContextBuilder(
         store=store,
         embedder=embedder,
@@ -57,15 +67,24 @@ def main() -> None:
         embedder=embedder,
     )
 
-    # Process a request
-    print("Sending: 你好，请介绍一下你自己")
-    response = engine.process("你好，请介绍一下你自己")
-    print(f"Response: {response}")
+    if has_api_key:
+        # Process a request
+        print("Sending: 你好，请介绍一下你自己")
+        response = engine.process("你好，请介绍一下你自己")
+        print(f"Response: {response}")
 
-    # Second turn with memory
-    print("\nSending: 我刚才问了什么？")
-    response = engine.process("我刚才问了什么？")
-    print(f"Response: {response}")
+        # Second turn with memory
+        print("\nSending: 我刚才问了什么？")
+        response = engine.process("我刚才问了什么？")
+        print(f"Response: {response}")
+    else:
+        # Headless mode: demonstrate memory retrieval
+        print("Sending query: 你好")
+        result = engine.retrieve("你好")
+        memories = result.get("memories", [])
+        print(f"Retrieved {len(memories)} memories")
+        for m in memories[:3]:
+            print(f"  [{m.get('memory_type', '?')}] {m.get('role', '?')}: {m.get('text', '')[:60]}...")
 
     print("\nLibrary demo completed successfully.")
 
