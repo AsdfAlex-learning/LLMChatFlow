@@ -22,7 +22,7 @@ async def lifespan(application: FastAPI):
     config = load_config()
     configure_logging_from_config(config)
 
-    store = SQLiteFaissMemoryStore("memory.db")
+    store = SQLiteFaissMemoryStore("data/memory.db")
     embedder = SentenceEmbedding(
         model_name=config.embedding_model,
         device=config.embedding_device or None,

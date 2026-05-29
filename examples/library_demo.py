@@ -35,7 +35,7 @@ def main() -> None:
         print("WARNING: OPENAI_API_KEY not set. Running in headless mode (no LLM).\n")
 
     # Initialize core components
-    store = SQLiteFaissMemoryStore("demo_memory.db")
+    store = SQLiteFaissMemoryStore("data/demo_memory.db")
     embedder = SentenceEmbedding(
         model_name=config.embedding_model,
         device=config.embedding_device or None,
