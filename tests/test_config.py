@@ -32,7 +32,7 @@ class TestAppConfigDefaults:
         assert cfg.memory_type_llm_judge is True
         assert cfg.importance_llm_judge is True
         assert cfg.importance_default == 0.5
-        assert cfg.storage_path == "memory.db"
+        assert cfg.storage_path == "data/memory.db"
         assert cfg.storage_batch_size == 5
         assert cfg.llm_model == "gpt-3.5-turbo"
 

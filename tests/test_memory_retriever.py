@@ -56,7 +56,8 @@ class TestMemoryRetrieverRetrieve:
         assert isinstance(result["latency_ms"], int)
 
     def test_embedding_failure(self, retriever, mock_embedder, mock_store):
-        mock_embedder.embed.side_effect = RuntimeError("embed failed")
+        # embed() now returns None on failure instead of raising
+        mock_embedder.embed.return_value = None
         mock_store.search_records.return_value = []
         mock_store.fetch_messages_by_session.return_value = []
         result = retriever.retrieve("hello", session_id="s1")
