@@ -46,10 +46,11 @@ class SentenceEmbedding:
         t = t.strip()
         return t
 
-    def embed(self, text: str) -> List[float]:
+    def embed(self, text: str) -> Optional[List[float]]:
         """Encode text into a normalized embedding vector.
 
-        Returns a zero vector on empty input or encoding failure.
+        Returns a zero vector for empty input.
+        Returns None on encoding failure — callers must check and degrade gracefully.
         """
         cleaned = self._clean_text(text)
         if not cleaned:
@@ -59,8 +60,8 @@ class SentenceEmbedding:
                 embeddings = self.model.encode([cleaned], normalize_embeddings=True)
                 return embeddings[0].tolist()
             except Exception as e:
-                self._logger.warning("Failed to generate embedding (%s)", str(e))
-                return [0.0] * int(getattr(self, "dim", 0) or 0)
+                self._logger.error("Failed to generate embedding, returning None (%s)", str(e))
+                return None
 
 
 def cosine_similarity(a: List[float], b: List[float]) -> float:

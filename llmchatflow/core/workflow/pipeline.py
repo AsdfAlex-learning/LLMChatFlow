@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import List, Optional, Protocol
 
 from ..context.base import ContextBuilder
 from ..llm.base import LLMClient
+from ..memory.ranking import IMPORTANCE_AI_MSG, IMPORTANCE_USER_MSG
 from ..memory.storage import MemoryStore
 from ...utils.embedding import SentenceEmbedding
 
@@ -84,7 +86,7 @@ class StorageHandler:
         """Persist user input and assistant reply as paired memory records."""
         import uuid
 
-        ts = __import__("time").time()
+        ts = time.time()
         now_ts = int(ts)
         turn_id = str(uuid.uuid4())
         self.store.insert_message(
@@ -92,7 +94,7 @@ class StorageHandler:
             "user",
             ctx.user_input,
             ctx.embedding or [],
-            0.9,  # user messages get higher default importance
+            IMPORTANCE_USER_MSG,  # user messages get higher default importance
             now_ts,
             user_id=ctx.user_id,
             turn_id=turn_id,
@@ -101,12 +103,14 @@ class StorageHandler:
             decay_rate=0.1,
         )
         ai_emb = self.embedder.embed(ctx.reply or "")
+        if ai_emb is None:
+            ai_emb = []
         self.store.insert_message(
             ctx.session_id,
             "assistant",
             ctx.reply or "",
             ai_emb,
-            0.7,  # assistant messages get lower default importance
+            IMPORTANCE_AI_MSG,  # assistant messages get lower default importance
             now_ts,
             user_id=ctx.user_id,
             turn_id=turn_id,

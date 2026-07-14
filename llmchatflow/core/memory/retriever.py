@@ -56,10 +56,9 @@ class MemoryRetriever:
         active_policy = policy or self.policy
 
         # Step 1: Embed query
-        try:
-            query_embedding = self.embedder.embed(query)
-        except Exception as e:
-            logger.warning("Embedding failed in retriever, using zero vector (%s)", str(e))
+        query_embedding = self.embedder.embed(query)
+        if query_embedding is None:
+            logger.warning("Embedding failed in retriever, using zero vector")
             dim = int(getattr(config, "embedding_dimension", 384)) if config else 384
             query_embedding = [0.0] * dim
 

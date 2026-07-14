@@ -103,6 +103,9 @@ class MemoryManager:
         importance = float(getattr(config, "importance_default", 0.5)) if config else 0.5
 
         user_emb = self.embedder.embed(user_input)
+        if user_emb is None:
+            logger.error("Embedding failed for user input, skipping store (turn_id=%s)", tid)
+            return
         self._store.insert_message(
             session_id=session_id,
             role="user",
@@ -119,6 +122,9 @@ class MemoryManager:
 
         if response:
             ai_emb = self.embedder.embed(response)
+            if ai_emb is None:
+                logger.error("Embedding failed for response, skipping assistant store (turn_id=%s)", tid)
+                return
             self._store.insert_message(
                 session_id=session_id,
                 role="assistant",
