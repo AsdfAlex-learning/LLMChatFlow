@@ -55,6 +55,8 @@ class SQLiteFaissMemoryStore(MemoryStore):
         self._faiss_worker_thread.start()
 
     def _faiss_worker(self) -> None:
+        consecutive_failures = 0
+        MAX_CONSECUTIVE_FAILURES = 50
         while not self._faiss_stop.is_set():
             try:
                 item = self._faiss_queue.get(timeout=0.2)
@@ -76,8 +78,13 @@ class SQLiteFaissMemoryStore(MemoryStore):
             try:
                 with self._faiss_lock:
                     self._faiss.add(ids, vecs, normalize=True)
+                consecutive_failures = 0
             except Exception as e:
-                logger.warning("FAISS async add failed (%s)", str(e))
+                consecutive_failures += 1
+                logger.warning("FAISS async add failed (%s), consecutive failures: %d", str(e), consecutive_failures)
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    logger.error("FAISS worker stopping after %d consecutive failures", consecutive_failures)
+                    return
                 continue
 
             with self._global_lock:
@@ -93,6 +100,31 @@ class SQLiteFaissMemoryStore(MemoryStore):
                 except Exception:
                     self._conn.rollback()
                     raise
+
+    def close(self) -> None:
+        """Clean up resources: stop FAISS worker, save index, close SQLite connection."""
+        self._faiss_stop.set()
+        if self._faiss_worker_thread.is_alive():
+            self._faiss_worker_thread.join(timeout=5)
+        if self._faiss is not None:
+            try:
+                self._faiss.save()
+            except Exception as e:
+                logger.warning("FAISS save on close failed (%s)", str(e))
+        with self._global_lock:
+            try:
+                if self._conn.in_transaction:
+                    self._conn.commit()
+                self._conn.close()
+            except Exception as e:
+                logger.warning("SQLite close failed (%s)", str(e))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
     def _ensure_tables(self):
         with self._global_lock:
