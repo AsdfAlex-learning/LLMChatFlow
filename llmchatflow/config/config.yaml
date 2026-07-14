@@ -1,36 +1,36 @@
-user_mode: "single"
-session_id_default: "default_session"
-query_rewrite_trigger: "none"
-query_rewrite_persist: "none"
-embedding_input_source: "original"
-embedding_dimension: 384
-faiss_topk: 20
-faiss_filter_strategy: "global"
-ranking_score_normalize: true
-ranking_weight_mode: "by_memory_type"
-ranking_type_weights_episodic: {"alpha": 0.5, "beta": 0.1, "theta": 0.4}
-ranking_type_weights_habit: {"alpha": 0.7, "beta": 0.3, "theta": 0.0}
-ranking_type_weights_summary: {"alpha": 0.6, "beta": 0.3, "theta": 0.1}
-ranking_type_weights_default: {"alpha": 0.5, "beta": 0.2, "theta": 0.3}
-ranking_keep_count: 10
-context_max_token: 2000
-context_min_token: 500
-history_summarize: true
-system_prompt: "built-in"
-memory_type_llm_judge: true
-faiss_write_strategy: "real_time"
-importance_llm_judge: true
-importance_default: 0.5
-archive_days: 90
-archive_importance: 0.2
-logging_level: "INFO"
-logging_console: true
-logging_file_path: ""
-logging_json: false
-embedding_model: "BAAI/bge-small-zh-v1.5"
-embedding_device: ""
-llm_provider: "openai"
-llm_model: "gpt-3.5-turbo"
-api_key: ""
-base_url: ""
-storage_path: "data/memory.db"
+user_mode: "single"  # Operation mode: "single" for single-user or "multi" for multi-user
+session_id_default: "default_session"  # Default session ID when none is provided
+query_rewrite_trigger: "none"  # When to trigger query rewrite: "none", "always", or "timed"
+query_rewrite_persist: "none"  # Query rewrite persistence: "none" or "persist"
+embedding_input_source: "original"  # Input for embedding: "original" or "rewritten"
+embedding_dimension: 384  # Dimension of embedding vectors (must match the embedding model)
+faiss_topk: 20  # Number of top memories to retrieve from FAISS index
+faiss_filter_strategy: "global"  # FAISS recall strategy: "global" or "filter_first"
+ranking_score_normalize: true  # Whether to normalize final ranking scores to [0, 1]
+ranking_weight_mode: "by_memory_type"  # Ranking weight mode: how to weight scoring factors
+ranking_type_weights_episodic: {"alpha": 0.5, "beta": 0.1, "theta": 0.4}  # Episodic memory scoring weights (alpha=similarity, beta=importance, theta=temporal_decay)
+ranking_type_weights_habit: {"alpha": 0.7, "beta": 0.3, "theta": 0.0}  # Habit memory scoring weights
+ranking_type_weights_summary: {"alpha": 0.6, "beta": 0.3, "theta": 0.1}  # Summary memory scoring weights
+ranking_type_weights_default: {"alpha": 0.5, "beta": 0.2, "theta": 0.3}  # Default scoring weights for unknown memory types
+ranking_keep_count: 10  # Maximum number of memories to retain after ranking
+context_max_token: 2000  # Maximum token budget for constructing context
+context_min_token: 500  # Minimum token budget for context (triggers warning if below)
+history_summarize: true  # Whether to enable history summarization for long sessions
+system_prompt: "built-in"  # System prompt source: "built-in" or a custom prompt string
+memory_type_llm_judge: true  # Whether to use LLM to auto-classify memory type (episodic/habit/summary)
+faiss_write_strategy: "real_time"  # FAISS index write strategy: "real_time" or "batch"
+importance_llm_judge: true  # Whether to use LLM to auto-score memory importance
+importance_default: 0.5  # Default importance score when LLM judgment is disabled
+archive_days: 90  # Days to retain memories before considering archival
+archive_importance: 0.2  # Minimum importance threshold for archival eligibility
+logging_level: "INFO"  # Logging verbosity: DEBUG, INFO, WARNING, ERROR
+logging_console: true  # Enable console output for logging
+logging_file_path: ""  # Optional file path for log output (empty = no file logging)
+logging_json: false  # Use structured JSON format for log output
+embedding_model: "BAAI/bge-small-zh-v1.5"  # Hugging Face model for sentence embeddings
+embedding_device: ""  # Compute device for embedding model: "" (auto), "cpu", or "cuda"
+llm_provider: "openai"  # LLM provider name (e.g., "openai")
+llm_model: "gpt-3.5-turbo"  # Chat model identifier for LLM API calls
+api_key: ""  # API key for the LLM provider
+base_url: ""  # Custom base URL for LLM API endpoint (empty = use provider default)
+storage_path: "data/memory.db"  # Path to SQLite database for persistent memory storage

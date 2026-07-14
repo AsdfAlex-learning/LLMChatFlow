@@ -1,4 +1,6 @@
 import logging
+import math
+import time
 from typing import Any, Dict, List, Tuple
 
 from .base import MemoryPolicy
@@ -37,10 +39,8 @@ class DefaultMemoryPolicy(MemoryPolicy):
         lam = float(kwargs.get("lam", 0.1))
 
         # Compute temporal decay
-        import time
         now = time.time()
         delta_days = max(0, (now - timestamp) / 86400) if timestamp else 0
-        import math
         time_decay = math.exp(-lam * delta_days)
 
         weights = type_weights.get(memory_type, default_weights)

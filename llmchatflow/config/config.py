@@ -53,7 +53,7 @@ class AppConfig:
     llm_model: str = "gpt-3.5-turbo"
     api_key: str = ""
     base_url: str = ""
-    storage_path: str = "memory.db"
+    storage_path: str = "data/memory.db"
     storage_batch_size: int = 5
 
     def to_dict(self) -> Dict[str, Any]:
@@ -69,7 +69,7 @@ def _safe_literal(value: str) -> Any:
         return None
     try:
         return ast.literal_eval(text)
-    except Exception:
+    except (ValueError, SyntaxError):
         return text
 
 
