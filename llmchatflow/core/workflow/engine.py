@@ -44,23 +44,25 @@ class SemanticMemoryEngine:
             ]
         )
 
-    def process(self, user_input: str, **kwargs) -> str:
+    def process(self, user_input: str, *, session: Optional[ISession] = None, **kwargs) -> str:
         """Run a full conversation turn: embed → retrieve → generate → store.
 
         Args:
             user_input: The raw user query text.
+            session: Per-call session. Falls back to self.session if not provided.
             **kwargs: Additional context (e.g., user_id).
 
         Returns:
             The LLM-generated reply text, or empty string on failure.
 
         Raises:
-            RuntimeError: If session is not set (None).
+            RuntimeError: If no session is available (both session and self.session are None).
         """
-        if self.session is None:
-            raise RuntimeError("SemanticMemoryEngine.session is not set. Set engine.session = session before calling process().")
+        active_session = session or self.session
+        if active_session is None:
+            raise RuntimeError("No session available. Pass session= or set engine.session before calling process().")
         t0 = time.time()
-        session_id = self.session.session_id
+        session_id = active_session.session_id
         logger.info("Workflow start (session_id=%s, mode=%s)", session_id, self.mode)
         ctx = PipelineContext(session_id=session_id, user_input=user_input, user_id=kwargs.get("user_id", ""))
         stop_before = LLMHandler if self.mode == "headless" else None
@@ -68,19 +70,24 @@ class SemanticMemoryEngine:
         logger.info("Workflow done (session_id=%s, latency_ms=%d)", session_id, int((time.time() - t0) * 1000))
         return ctx.reply or ""
 
-    def retrieve(self, user_input: str, **kwargs) -> Any:
+    def retrieve(self, user_input: str, *, session: Optional[ISession] = None, **kwargs) -> Any:
         """Headless retrieval.
 
         If memory_manager is configured, uses MemoryManager.retrieve()
         which returns structured dict with memories/turns/latency.
         Otherwise falls back to pipeline (returns PipelineContext).
 
+        Args:
+            user_input: The raw user query text.
+            session: Per-call session. Falls back to self.session if not provided.
+
         Raises:
-            RuntimeError: If session is not set (None).
+            RuntimeError: If no session is available.
         """
-        if self.session is None:
-            raise RuntimeError("SemanticMemoryEngine.session is not set. Set engine.session = session before calling retrieve().")
-        session_id = self.session.session_id
+        active_session = session or self.session
+        if active_session is None:
+            raise RuntimeError("No session available. Pass session= or set engine.session before calling retrieve().")
+        session_id = active_session.session_id
         user_id = kwargs.get("user_id", "")
 
         if self.memory_manager is not None:
