@@ -11,6 +11,7 @@ LLMChatFlow 是一个用于管理"记忆 → 检索 → 上下文 → 推理"的
 *   **Context Orchestration（关键能力）**: 贯通 memory selection → context structuring，支持 token-aware prompt 构建与 multi-source context 融合。
 *   **Modular Architecture**: Session、Memory、Workflow、LLM、Adapters 解耦，便于替换与扩展。
 *   **Headless Mode**: 无需 LLM API Key 即可使用记忆检索能力，便于集成到已有系统。
+*   **API Security**: 内置速率限制（30 req/60s）、输入长度校验（≤10000 字符）、线程安全的 per-request session。
 
 ## Architecture
 
@@ -82,7 +83,7 @@ examples/
 ├── headless_demo.py         # 无 LLM 检索演示
 └── api_client_demo.py       # HTTP 客户端
 
-tests/                        # pytest 测试（123+ 用例）
+tests/                        # pytest 测试（156 用例, 覆盖率 76%）
 data/                         # 运行时数据库目录（.gitignore 保护）
 ```
 
@@ -117,6 +118,8 @@ GitHub Actions 在每次 push/PR 时自动运行快速测试（`pytest -m "not s
 | `GET /ready` | 就绪探针（检查 OPENAI_API_KEY） |
 | `POST /chat` | 对话（需要 API Key） |
 | `POST /retrieve` | 无头记忆检索（无需 API Key） |
+
+API 服务器内置安全防护：每 IP 速率限制 30 req/60s，输入长度上限 10000 字符，超限返回 422。关闭时自动清理 SQLite 连接和 FAISS 索引。
 
 ## License
 

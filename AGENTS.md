@@ -32,13 +32,13 @@ llmchatflow/
 │   └── api/adapter.py              # APIAdapter (parse/format)
 └── utils/                          # SentenceEmbedding, FaissIndex, TokenCounter
 apps/
-└── api_server.py                   # FastAPI server (POST /chat, lifespan singletons)
+└── api_server.py                   # FastAPI server (POST /chat, /retrieve, 限流, lifespan)
 examples/
 ├── cli_demo.py                     # 交互式 CLI
 ├── library_demo.py                 # import llmchatflow 库用法
 ├── headless_demo.py                # 无 LLM 检索演示
 └── api_client_demo.py              # HTTP 客户端演示
-tests/                              # pytest, 50+ 测试
+tests/                              # pytest, 156 用例, 覆盖率 76%
 ```
 
 ## WHERE TO LOOK
@@ -60,20 +60,24 @@ tests/                              # pytest, 50+ 测试
 
 | Symbol | Type | Location | 职责 |
 |--------|------|----------|------|
-| `SemanticMemoryEngine` | class | `workflow/engine.py` | 对话编排，Full/Headless 双模式 |
+| `SemanticMemoryEngine` | class | `workflow/engine.py` | 对话编排，Full/Headless 双模式，session 参数化 |
 | `MemoryManager` | class | `memory/manager.py` | 记忆统一入口: retrieve/store/build_view |
 | `DefaultMemoryPolicy` | class | `memory/policy/default.py` | 桶选择 + 类型感知评分 |
 | `MemoryRetriever` | class | `memory/retriever.py` | FAISS→SQLite→Policy 编排 |
 | `MemoryViewBuilder` | class | `memory/view_builder.py` | 结果 → text/prompt/structured |
-| `StructuredContextBuilder` | class | `context/structured.py` | 多源上下文(4 blocks) |
-| `SQLiteFaissMemoryStore` | class | `utils/sqlite_faiss_memory_store.py` | SQLite+FAISS 线程安全 |
+| `StructuredContextBuilder` | class | `context/structured.py` | 多源上下文(4 blocks)，config 注入 |
+| `SQLiteFaissMemoryStore` | class | `utils/sqlite_faiss_memory_store.py` | SQLite+FAISS 线程安全，close()+上下文管理 |
 | `LLMJudge` | class | `memory/judge.py` | LLM 判定记忆类型+重要性 |
 | `QueryRewriter` | class | `workflow/query_rewrite.py` | 查询重写(none/always/timed/count) |
+| `RateLimiter` | class | `apps/api_server.py` | 每 IP 速率限制 (30 req/60s) |
+| `OpenAICompatibleClient` | class | `core/llm/openai_compatible.py` | OpenAI 兼容客户端，指数退避重试 |
 
 ## CONVENTIONS
 - **ABC 定义接口**: 每个子系统提供 `base.py` 抽象基类（MemoryStore, LLMClient, ContextBuilder, PromptTemplate, ISession）
-- **Config 驱动**: 所有参数化行为通过 `AppConfig` 单例读取，不硬编码
+- **Config 注入**: `StructuredContextBuilder` 通过构造函数接收 `AppConfig`，不再依赖模块级全局单例；其他模块通过 `AppConfig` 单例读取
 - **懒加载**: 顶层 `__init__.py` 和 `core/memory/__init__.py` 用 `__getattr__` 延迟导入 MemoryManager
+- **Embedding 可选返回**: `SentenceEmbedding.embed()` 返回 `Optional[List[float]]`，调用方需处理 None
+- **资源清理**: `SQLiteFaissMemoryStore` 实现 `close()` + `__enter__/__exit__`，API server 在 shutdown 时调用
 - **Commit 风格**: `type(scope): description` — type=feat/fix/refactor/chore/test/docs, scope=模块名
 - **Plan-driven**: 所有设计决策见 `plan.md`
 
@@ -83,6 +87,8 @@ tests/                              # pytest, 50+ 测试
 - ❌ 绕过 MemoryStore ABC 直接操作 SQLite
 - ❌ 平面单消息 prompt — 用 StructuredPromptAssembler 的结构化块
 - ❌ `sys.path.insert()` hack — 依赖 pip install -e . 安装
+- ❌ 修改 `engine.session` 共享状态 — session 通过方法参数传入
+- ❌ 在日志或异常中暴露 API Key — 使用 `HTTP {status}` 格式
 
 ## COMMANDS
 ```bash
@@ -105,7 +111,8 @@ python examples/headless_demo.py
 
 ## NOTES
 - `plan.md` 是架构设计文档，Section 7 描述 Memory Intelligence Layer
-- `CLAUDE.md` 为历史文档，AGENTS.md 为其更新版
+- `CHANGELOG.md` 记录版本变更历史，遵循 Keep a Changelog 格式
+- `CONTRIBUTING.md` 提供开发指南和提交规范
 - `.sisyphus/` 为 ultrawork 会话状态目录（已完成会话可清理）
 - `_legacy/` 为旧 TelegramChatbot 代码，已 gitignore，与新系统无关
 - FAISS 索引文件 `*.faiss` + SQLite WAL 文件 `*.db-shm` / `*.db-wal` 已 gitignore
